@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Simulasi Penempatan Objek AR - Markerless</title>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: sans-serif; }
+    #status {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 999;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 14px;
+      line-height: 1.4;
+      max-width: 90vw;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="status">
+    Nama objek: Cube<br>
+    Ukuran objek: 1.5<br>
+    Jumlah objek maksimum: 3<br>
+    Plane: <span id="planeStatus">Belum ditemukan</span><br>
+    Objek dibuat: <span id="objectCount">0</span>
+  </div>
+
+  <a-scene
+    webxr="requiredFeatures: hit-test; optionalFeatures: dom-overlay; overlayElement: #status;"
+    renderer="colorManagement: true;"
+    vr-mode-ui="enabled: false"
+  >
+    <a-assets></a-assets>
+
+    <a-camera position="0 0 0"></a-camera>
+
+    <!-- Reticle: shows where the plane/surface is detected -->
+    <a-entity id="reticle"
+      geometry="primitive: ring; radiusInner: 0.05; radiusOuter: 0.07"
+      material="color: #00FF00; shader: flat"
+      rotation="-90 0 0"
+      visible="false">
+    </a-entity>
+
+  </a-scene>
+
+  <script>
+    // ==== Kondisi awal (sama seperti simulasi sebelumnya) ====
+    const namaObjek = "Cube";
+    const ukuranObjek = 1.5;
+    const jumlahObjekMax = 3;
+
+    let planeTerdeteksi = false; // akan jadi true saat hit-test menemukan permukaan
+    let jumlahObjekDibuat = 0;
+
+    const sceneEl = document.querySelector('a-scene');
+    const reticle = document.querySelector('#reticle');
+    const planeStatusEl = document.querySelector('#planeStatus');
+    const objectCountEl = document.querySelector('#objectCount');
+
+    let hitTestSource = null;
+    let localSpace = null;
+    let lastHitPose = null;
+
+    sceneEl.addEventListener('enter-vr', () => {
+      const xrSession = sceneEl.renderer.xr.getSession();
+      if (!xrSession) return;
+
+      xrSession.addEventListener('end', () => {
+        hitTestSource = null;
+      });
+
+      // Setup hit-test source
+      xrSession.requestReferenceSpace('viewer').then((refSpace) => {
+        xrSession.requestHitTestSource({ space: refSpace }).then((source) => {
+          hitTestSource = source;
+        });
+      });
+
+      sceneEl.renderer.xr.getReferenceSpace &&
+        (localSpace = sceneEl.renderer.xr.getReferenceSpace());
+
+      // Tap to place
+      xrSession.addEventListener('select', onSelect);
+    });
+
+    function onSelect() {
+      const sudahTap = true; // event select = user tapped screen
+
+      // Sama seperti logika sebelumnya:
+      // Jika planeTerdeteksi DAN sudahTap -> objek dapat ditempatkan
+      if (planeTerdeteksi && sudahTap && lastHitPose) {
+        if (jumlahObjekDibuat < jumlahObjekMax) {
+          placeCube(lastHitPose);
+          jumlahObjekDibuat++;
+          objectCountEl.textContent = jumlahObjekDibuat;
+          console.log("Membuat objek ke-" + jumlahObjekDibuat);
+        } else {
+          console.log("Jumlah objek maksimum (" + jumlahObjekMax + ") sudah tercapai");
+        }
+      } else {
+        console.log("Objek belum dapat ditempatkan");
+      }
+    }
+
+    function placeCube(pose) {
+      const cube = document.createElement('a-box');
+      cube.setAttribute('width', ukuranObjek * 0.2);
+      cube.setAttribute('height', ukuranObjek * 0.2);
+      cube.setAttribute('depth', ukuranObjek * 0.2);
+      cube.setAttribute('color', '#4CC3D9');
+      cube.setAttribute('position', {
+        x: pose.transform.position.x,
+        y: pose.transform.position.y,
+        z: pose.transform.position.z
+      });
+      sceneEl.appendChild(cube);
+    }
+
+    // Frame loop: run hit-test every frame to update plane detection + reticle
+    sceneEl.addEventListener('renderstart', () => {
+      const renderer = sceneEl.renderer;
+      const origAnimate = renderer.xr.getSession;
+
+      sceneEl.object3D.onBeforeRender = () => {};
+
+      renderer.setAnimationLoop((timestamp, frame) => {
+        if (frame && hitTestSource) {
+          const refSpace = renderer.xr.getReferenceSpace();
+          const hitTestResults = frame.getHitTestResults(hitTestSource);
+
+          if (hitTestResults.length > 0) {
+            const hit = hitTestResults[0];
+            const pose = hit.getPose(refSpace);
+
+            planeTerdeteksi = true;
+            lastHitPose = pose;
+            planeStatusEl.textContent = "Ditemukan";
+
+            reticle.setAttribute('visible', true);
+            reticle.object3D.position.set(
+              pose.transform.position.x,
+              pose.transform.position.y,
+              pose.transform.position.z
+            );
+          } else {
+            planeTerdeteksi = false;
+            planeStatusEl.textContent = "Belum ditemukan";
+            reticle.setAttribute('visible', false);
+          }
+        }
+        sceneEl.renderer.render(sceneEl.object3D, sceneEl.camera);
+      });
+    });
+  </script>
+
+</body>
+</html>

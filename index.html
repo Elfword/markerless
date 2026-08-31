@@ -19,6 +19,20 @@
       line-height: 1.4;
       max-width: 90vw;
     }
+    #startArBtn {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 999;
+      background: #4CC3D9;
+      color: #000;
+      border: none;
+      padding: 14px 28px;
+      border-radius: 30px;
+      font-size: 16px;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -30,6 +44,8 @@
     Plane: <span id="planeStatus">Belum ditemukan</span><br>
     Objek dibuat: <span id="objectCount">0</span>
   </div>
+
+  <button id="startArBtn">Mulai AR (Aktifkan Kamera)</button>
 
   <a-scene
     webxr="requiredFeatures: hit-test; optionalFeatures: dom-overlay; overlayElement: #status;"
@@ -63,6 +79,17 @@
     const reticle = document.querySelector('#reticle');
     const planeStatusEl = document.querySelector('#planeStatus');
     const objectCountEl = document.querySelector('#objectCount');
+    const startArBtn = document.querySelector('#startArBtn');
+
+    // This click is what actually triggers the browser's camera permission prompt
+    startArBtn.addEventListener('click', () => {
+      if (navigator.xr) {
+        sceneEl.enterAR();
+        startArBtn.style.display = 'none';
+      } else {
+        alert('WebXR tidak didukung di browser ini. Gunakan Chrome di Android.');
+      }
+    });
 
     let hitTestSource = null;
     let localSpace = null;

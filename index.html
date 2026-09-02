@@ -78,17 +78,21 @@
     width:36px; height:36px; border-radius:50%; border:1px solid var(--copper);
     background: rgba(10,46,34,0.85); color:var(--silk); font-size:16px; cursor:pointer;
   }
-  #sensor-toolbar {
-    position:absolute; bottom: 24px; left:0; right:0;
-    display:flex; justify-content:center; gap:10px; pointer-events:all;
-    padding: 0 16px; overflow-x:auto;
+  #picker {
+    position:absolute; bottom: 0; left:0; right:0; pointer-events:all;
+    padding: 10px 0 22px; background: linear-gradient(to top, rgba(9,38,29,0.92), transparent 100%);
   }
+  #category-toolbar, #variant-toolbar {
+    display:flex; gap:8px; overflow-x:auto; padding: 0 16px;
+  }
+  #variant-toolbar { margin-top: 8px; }
   .toolbar-chip {
     flex: 0 0 auto; padding: 8px 14px; font-size:12px; font-family:inherit;
     background: rgba(10,46,34,0.9); color: var(--silk);
     border:1px solid var(--trace); border-radius:16px; cursor:pointer; white-space:nowrap;
   }
-  .toolbar-chip.active { border-color: var(--copper-bright); color: var(--copper-bright); }
+  .category-chip.active { background: var(--copper); border-color: var(--copper); color: var(--pcb-dark); font-weight:bold; }
+  .variant-chip.active { border-color: var(--led); color: var(--led); }
 
   /* ---------- INFO PANEL ---------- */
   #info-panel {
@@ -139,7 +143,10 @@
     <button id="exit-ar">✕</button>
     <div id="hit-hint">Move your phone to find a surface</div>
 
-    <div id="sensor-toolbar"></div>
+    <div id="picker">
+      <div id="category-toolbar"></div>
+      <div id="variant-toolbar"></div>
+    </div>
 
     <div id="info-panel">
       <span class="close-x" id="info-close">✕</span>
@@ -156,8 +163,9 @@
   <a-scene
     id="scene"
     webxr="requiredFeatures: hit-test; optionalFeatures: dom-overlay; overlayElement: #ar-ui;"
-    renderer="colorManagement: true; physicallyCorrectLights: true;"
+    renderer="colorManagement: true; physicallyCorrectLights: true; alpha: true;"
     vr-mode-ui="enabled: false"
+    background="transparent: true"
     style="display:none">
 
     <a-assets></a-assets>
@@ -229,7 +237,7 @@
     {
       id: "pir",
       name: "PIR Motion Sensor",
-      category: "Motion",
+      category: "Motion & Orientation",
       function: "Detects movement by sensing changes in infrared radiation (body heat) within its field of view.",
       construction: "A pyroelectric sensor element under a Fresnel lens dome, which splits the detection zone into multiple sub-zones so movement across them triggers a signal.",
       pairing: "Arduino, ESP32, standalone security systems — single digital output pin (HIGH when motion detected).",
@@ -239,7 +247,7 @@
     {
       id: "mpu6050",
       name: "MPU6050 (Accelerometer + Gyro)",
-      category: "Motion / Orientation",
+      category: "Motion & Orientation",
       function: "Measures acceleration on 3 axes and rotational velocity on 3 axes to determine orientation and movement.",
       construction: "A single MEMS chip combining an accelerometer and gyroscope, plus an onboard digital motion processor, mounted on a small breakout board.",
       pairing: "Arduino, ESP32 — communicates over I2C (SDA/SCL pins).",
@@ -249,6 +257,13 @@
   ];
 
   let selectedSensorId = SENSOR_LIBRARY[0].id;
+
+  /* Group the flat library into { categoryName: [sensors...] } */
+  const CATEGORIES = SENSOR_LIBRARY.reduce((acc, s) => {
+    (acc[s.category] = acc[s.category] || []).push(s);
+    return acc;
+  }, {});
+  let activeCategory = SENSOR_LIBRARY[0].category;
 
   /* ---------- Start screen wiring ---------- */
   const startScreen = document.getElementById('start-screen');
@@ -261,44 +276,71 @@
   });
 
   document.getElementById('btn-scan').addEventListener('click', async () => {
-    if (navigator.xr && await navigator.xr.isSessionSupported('immersive-ar')) {
-      startScreen.style.display = 'none';
-      scene.style.display = 'block';
-      arUi.style.display = 'block';
-      scene.enterAR ? scene.enterAR() : scene.emit('enter-vr-triggered');
-      document.querySelector('a-scene').systems['webxr'] || true;
-      // A-Frame exposes AR entry through the scene's built-in button system;
-      // trigger it directly:
-      document.querySelector('a-scene').components.webxr ? null : null;
-      enterARSession();
-    } else {
+    if (!navigator.xr || !(await navigator.xr.isSessionSupported('immersive-ar'))) {
       unsupportedNotice.style.display = 'block';
+      return;
+    }
+    startScreen.style.display = 'none';
+    scene.style.display = 'block';
+    arUi.style.display = 'block';
+
+    const sceneEl = document.querySelector('a-scene');
+    try {
+      // useAR = true tells A-Frame to request an immersive-ar session
+      // (rather than immersive-vr) using the webxr component's config above.
+      await sceneEl.enterVR(true);
+    } catch (err) {
+      console.error('Failed to start AR session:', err);
+      alert('Could not start AR: ' + err.message + '\nCheck camera permission was granted to the browser.');
+      startScreen.style.display = 'flex';
+      scene.style.display = 'none';
+      arUi.style.display = 'none';
     }
   });
-
-  function enterARSession() {
-    const sceneEl = document.querySelector('a-scene');
-    if (sceneEl.is('vr-mode')) return;
-    sceneEl.enterVR(true); // true = requests AR when WebXR + hit-test configured
-  }
 
   document.getElementById('exit-ar').addEventListener('click', () => {
     document.querySelector('a-scene').exitVR();
   });
 
-  /* ---------- Sensor toolbar ---------- */
-  const toolbar = document.getElementById('sensor-toolbar');
-  SENSOR_LIBRARY.forEach(s => {
-    const chip = document.createElement('button');
-    chip.className = 'toolbar-chip' + (s.id === selectedSensorId ? ' active' : '');
-    chip.textContent = s.name;
-    chip.dataset.id = s.id;
-    chip.addEventListener('click', () => {
-      selectedSensorId = s.id;
-      [...toolbar.children].forEach(c => c.classList.toggle('active', c.dataset.id === s.id));
+  /* ---------- Category / variant picker ---------- */
+  const categoryToolbar = document.getElementById('category-toolbar');
+  const variantToolbar = document.getElementById('variant-toolbar');
+
+  function renderCategories() {
+    categoryToolbar.innerHTML = '';
+    Object.keys(CATEGORIES).forEach(catName => {
+      const chip = document.createElement('button');
+      chip.className = 'toolbar-chip category-chip' + (catName === activeCategory ? ' active' : '');
+      chip.textContent = catName;
+      chip.dataset.category = catName;
+      chip.addEventListener('click', () => {
+        activeCategory = catName;
+        // default to the first variant in the newly selected category
+        selectedSensorId = CATEGORIES[catName][0].id;
+        renderCategories();
+        renderVariants();
+      });
+      categoryToolbar.appendChild(chip);
     });
-    toolbar.appendChild(chip);
-  });
+  }
+
+  function renderVariants() {
+    variantToolbar.innerHTML = '';
+    CATEGORIES[activeCategory].forEach(s => {
+      const chip = document.createElement('button');
+      chip.className = 'toolbar-chip variant-chip' + (s.id === selectedSensorId ? ' active' : '');
+      chip.textContent = s.name;
+      chip.dataset.id = s.id;
+      chip.addEventListener('click', () => {
+        selectedSensorId = s.id;
+        [...variantToolbar.children].forEach(c => c.classList.toggle('active', c.dataset.id === s.id));
+      });
+      variantToolbar.appendChild(chip);
+    });
+  }
+
+  renderCategories();
+  renderVariants();
 
   /* ---------- Info panel ---------- */
   const infoPanel = document.getElementById('info-panel');

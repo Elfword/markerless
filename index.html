@@ -1,191 +1,411 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Simulasi Penempatan Objek AR - Markerless</title>
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <style>
-    body { margin: 0; overflow: hidden; font-family: sans-serif; }
-    #status {
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      z-index: 999;
-      background: rgba(0,0,0,0.6);
-      color: #fff;
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 14px;
-      line-height: 1.4;
-      max-width: 90vw;
-    }
-    #startArBtn {
-      position: fixed;
-      bottom: 30px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 999;
-      background: #4CC3D9;
-      color: #000;
-      border: none;
-      padding: 14px 28px;
-      border-radius: 30px;
-      font-size: 16px;
-      font-weight: bold;
-    }
-  </style>
+<meta charset="utf-8">
+<title>AR Robotic Sensors</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<style>
+  :root{
+    --pcb-dark: #0A2E22;
+    --pcb-green: #10473A;
+    --trace: #1F6E52;
+    --copper: #C08A3E;
+    --copper-bright: #E0A85C;
+    --silk: #EDEAE0;
+    --led: #4FC3F7;
+    --warn: #E0574B;
+  }
+  * { box-sizing: border-box; margin:0; padding:0; -webkit-tap-highlight-color: transparent; }
+  html, body { height:100%; overflow:hidden; background:var(--pcb-dark); }
+  body { font-family: 'Courier New', Consolas, monospace; color: var(--silk); }
+
+  /* ---------- START SCREEN ---------- */
+  #start-screen {
+    position:fixed; inset:0; z-index:20;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:
+      linear-gradient(var(--pcb-dark), var(--pcb-dark)) padding-box,
+      repeating-linear-gradient(0deg, transparent 0 38px, var(--trace) 38px 39px) 0 0/100% 39px,
+      repeating-linear-gradient(90deg, transparent 0 38px, var(--trace) 38px 39px) 0 0/39px 100%;
+    background-color: var(--pcb-dark);
+    opacity: .97;
+    padding: 24px;
+    text-align:center;
+  }
+  .board-frame {
+    border: 2px solid var(--copper);
+    border-radius: 4px;
+    padding: 36px 28px;
+    background: rgba(10,46,34,0.9);
+    max-width: 380px;
+    width:100%;
+  }
+  .eyebrow {
+    font-size: 12px; letter-spacing: 2px; color: var(--copper-bright);
+  }
+  h1 {
+    font-size: 28px; margin: 10px 0 6px; color: var(--silk);
+    font-family: Georgia, 'Times New Roman', serif; font-weight: 700;
+  }
+  .tagline { font-size: 13px; color: #9FBFB1; margin-bottom: 30px; line-height:1.5; }
+
+  .menu-btn {
+    display:block; width:100%; margin-bottom: 14px;
+    padding: 16px 18px; font-size:15px; font-family: inherit;
+    background: var(--pcb-green); color: var(--silk);
+    border: 1px solid var(--trace); border-left: 4px solid var(--copper);
+    border-radius: 2px; text-align:left; cursor:pointer;
+  }
+  .menu-btn:active { background: var(--trace); }
+  .menu-btn .arrow { float:right; color: var(--copper-bright); }
+  .menu-btn small { display:block; color:#9FBFB1; font-size:11px; margin-top:3px; }
+
+  #ar-unsupported {
+    display:none; margin-top: 18px; font-size:12px; color: var(--warn); line-height:1.5;
+  }
+
+  /* ---------- AR UI ---------- */
+  #ar-ui { position:fixed; inset:0; z-index:10; display:none; pointer-events:none; }
+  #hit-hint {
+    position:absolute; top: 24px; left:50%; transform:translateX(-50%);
+    background: rgba(10,46,34,0.85); border:1px solid var(--copper);
+    color: var(--silk); font-size:12px; padding:8px 14px; border-radius:20px;
+    pointer-events:none; transition: opacity .2s;
+  }
+  #exit-ar {
+    position:absolute; top: 20px; right: 20px; pointer-events:all;
+    width:36px; height:36px; border-radius:50%; border:1px solid var(--copper);
+    background: rgba(10,46,34,0.85); color:var(--silk); font-size:16px; cursor:pointer;
+  }
+  #sensor-toolbar {
+    position:absolute; bottom: 24px; left:0; right:0;
+    display:flex; justify-content:center; gap:10px; pointer-events:all;
+    padding: 0 16px; overflow-x:auto;
+  }
+  .toolbar-chip {
+    flex: 0 0 auto; padding: 8px 14px; font-size:12px; font-family:inherit;
+    background: rgba(10,46,34,0.9); color: var(--silk);
+    border:1px solid var(--trace); border-radius:16px; cursor:pointer; white-space:nowrap;
+  }
+  .toolbar-chip.active { border-color: var(--copper-bright); color: var(--copper-bright); }
+
+  /* ---------- INFO PANEL ---------- */
+  #info-panel {
+    position:absolute; left:0; right:0; bottom:0; z-index:15;
+    pointer-events:all; transform: translateY(100%); transition: transform .25s ease;
+    background: rgba(9,38,29,0.97); border-top: 2px solid var(--copper);
+    max-height: 62%; overflow-y:auto; padding: 20px 20px 28px;
+  }
+  #info-panel.open { transform: translateY(0); }
+  #info-panel .close-x {
+    position:absolute; top:12px; right:16px; font-size:20px; color:#9FBFB1; cursor:pointer;
+  }
+  #info-panel h2 { font-family: Georgia, serif; font-size:20px; color:var(--copper-bright); margin-bottom:4px; }
+  #info-panel .id-tag { font-size:11px; color:#9FBFB1; letter-spacing:1px; margin-bottom:16px; }
+  .info-row { margin-bottom:14px; }
+  .info-row .label { font-size:10px; letter-spacing:1.5px; color: var(--led); margin-bottom:3px; }
+  .info-row .value { font-size:14px; line-height:1.5; color: var(--silk); }
+  .info-row ul { margin: 4px 0 0 16px; }
+  .info-row li { font-size:13px; margin-bottom:2px; }
+</style>
 </head>
 <body>
 
-  <div id="status">
-    Nama objek: Cube<br>
-    Ukuran objek: 1.5<br>
-    Jumlah objek maksimum: 3<br>
-    Plane: <span id="planeStatus">Belum ditemukan</span><br>
-    Objek dibuat: <span id="objectCount">0</span>
+  <!-- ========== START SCREEN ========== -->
+  <div id="start-screen">
+    <div class="board-frame">
+      <div class="eyebrow">SENSOR LAB — AR FIELD GUIDE</div>
+      <h1>AR Robotic Sensors</h1>
+      <p class="tagline">Place real sensor modules on any surface, tap to learn what each one does, how it's built, and where it shows up in everyday devices.</p>
+
+      <button class="menu-btn" id="btn-scan">
+        Scan Now <span class="arrow">›</span>
+        <small>Find a surface and start placing sensors</small>
+      </button>
+      <button class="menu-btn" id="btn-quiz">
+        Quiz <span class="arrow">›</span>
+        <small>Test what you've learned</small>
+      </button>
+
+      <div id="ar-unsupported">
+        This device/browser doesn't support AR (WebXR hit-test). Try the latest Chrome on an ARCore-capable Android phone.
+      </div>
+    </div>
   </div>
 
-  <button id="startArBtn">Mulai AR (Aktifkan Kamera)</button>
+  <!-- ========== AR OVERLAY UI ========== -->
+  <div id="ar-ui">
+    <button id="exit-ar">✕</button>
+    <div id="hit-hint">Move your phone to find a surface</div>
 
+    <div id="sensor-toolbar"></div>
+
+    <div id="info-panel">
+      <span class="close-x" id="info-close">✕</span>
+      <h2 id="info-name">—</h2>
+      <div class="id-tag" id="info-id">—</div>
+      <div class="info-row"><div class="label">FUNCTION</div><div class="value" id="info-function">—</div></div>
+      <div class="info-row"><div class="label">HOW IT'S MADE</div><div class="value" id="info-construction">—</div></div>
+      <div class="info-row"><div class="label">PAIRS WITH</div><div class="value" id="info-pairing">—</div></div>
+      <div class="info-row"><div class="label">FOUND IN</div><ul class="value" id="info-examples"></ul></div>
+    </div>
+  </div>
+
+  <!-- ========== AR SCENE ========== -->
   <a-scene
-    webxr="requiredFeatures: hit-test; optionalFeatures: dom-overlay; overlayElement: #status;"
-    renderer="colorManagement: true;"
+    id="scene"
+    webxr="requiredFeatures: hit-test; optionalFeatures: dom-overlay; overlayElement: #ar-ui;"
+    renderer="colorManagement: true; physicallyCorrectLights: true;"
     vr-mode-ui="enabled: false"
-  >
+    style="display:none">
+
     <a-assets></a-assets>
 
-    <a-camera position="0 0 0"></a-camera>
-
-    <!-- Reticle: shows where the plane/surface is detected -->
     <a-entity id="reticle"
-      geometry="primitive: ring; radiusInner: 0.05; radiusOuter: 0.07"
-      material="color: #00FF00; shader: flat"
+      geometry="primitive: ring; radiusInner: 0.045; radiusOuter: 0.06"
+      material="color: #4FC3F7; shader: flat; opacity: 0.9"
       rotation="-90 0 0"
       visible="false">
     </a-entity>
 
+    <a-entity id="placed-sensors"></a-entity>
+
+    <a-entity light="type: ambient; intensity: 0.9"></a-entity>
+    <a-entity light="type: directional; intensity: 0.6" position="1 2 1"></a-entity>
+
+    <a-entity camera></a-entity>
   </a-scene>
 
-  <script>
-    // ==== Kondisi awal (sama seperti simulasi sebelumnya) ====
-    const namaObjek = "Cube";
-    const ukuranObjek = 1.5;
-    const jumlahObjekMax = 3;
+<script>
+  /* =========================================================
+     SENSOR LIBRARY
+     Add more entries here — everything else (toolbar, model
+     shape, info panel) reads from this array. `shape` is a
+     placeholder primitive; swap for `gltf-model: #id` later
+     once real GLBs are ready.
+  ========================================================= */
+  const SENSOR_LIBRARY = [
+    {
+      id: "dht11",
+      name: "DHT11",
+      category: "Temperature & Humidity",
+      function: "Measures ambient temperature and relative humidity using a resistive humidity sensor plus an NTC thermistor.",
+      construction: "A single molded plastic housing containing a calibrated resistive humidity-sensing component and a thermistor, read by a basic 8-bit chip that outputs digital data.",
+      pairing: "Arduino Uno/Nano, ESP32, ESP8266 — reads over a single digital pin using a simple timing protocol.",
+      examples: ["Home weather stations", "Greenhouse humidity monitors", "Basic smart thermostats"],
+      shape: { primitive: "box", args: "width:0.09; height:0.14; depth:0.05", color: "#1F6E52" }
+    },
+    {
+      id: "dht22",
+      name: "DHT22 / AM2302",
+      category: "Temperature & Humidity",
+      function: "Higher-precision version of the DHT11 with a wider range and better accuracy for both temperature and humidity.",
+      construction: "Same resistive humidity + thermistor design as DHT11, but with a better-calibrated sensing element and faster sampling.",
+      pairing: "Arduino, ESP32/ESP8266, Raspberry Pi GPIO — same single-wire digital protocol as DHT11.",
+      examples: ["Precision greenhouse control", "HVAC monitoring", "Data-logging weather stations"],
+      shape: { primitive: "box", args: "width:0.1; height:0.16; depth:0.05", color: "#2A8064" }
+    },
+    {
+      id: "ir-obstacle",
+      name: "IR Obstacle Sensor",
+      category: "Distance / Obstacle",
+      function: "Detects the presence of a nearby object by bouncing infrared light off it and sensing the reflection — outputs a simple on/off signal.",
+      construction: "An IR LED emitter paired with an IR photodiode receiver on a small PCB, with an onboard comparator (often an LM393) to convert the analog signal to digital.",
+      pairing: "Arduino, ESP32 — single digital input pin, plus a potentiometer on the module to tune sensitivity.",
+      examples: ["Line-following robots", "Automatic soap dispensers", "Conveyor-belt object counters"],
+      shape: { primitive: "cylinder", args: "radius:0.035; height:0.02", color: "#C08A3E" }
+    },
+    {
+      id: "hc-sr04",
+      name: "HC-SR04 Ultrasonic",
+      category: "Distance / Obstacle",
+      function: "Measures distance to an object by timing how long an ultrasonic pulse takes to bounce back.",
+      construction: "Two ultrasonic transducers (one transmitter, one receiver) on a small PCB with driver/timing circuitry.",
+      pairing: "Arduino, ESP32 — uses a trigger pin and an echo pin; distance is calculated from the echo pulse duration.",
+      examples: ["Parking-assist sensors", "Robot vacuum obstacle avoidance", "Water tank level meters"],
+      shape: { primitive: "box", args: "width:0.12; height:0.045; depth:0.03", color: "#9FBFB1" }
+    },
+    {
+      id: "pir",
+      name: "PIR Motion Sensor",
+      category: "Motion",
+      function: "Detects movement by sensing changes in infrared radiation (body heat) within its field of view.",
+      construction: "A pyroelectric sensor element under a Fresnel lens dome, which splits the detection zone into multiple sub-zones so movement across them triggers a signal.",
+      pairing: "Arduino, ESP32, standalone security systems — single digital output pin (HIGH when motion detected).",
+      examples: ["Security lights", "Motion-activated alarms", "Automatic doors"],
+      shape: { primitive: "sphere", args: "radius:0.045; phiLength:360; thetaLength:110", color: "#E0A85C" }
+    },
+    {
+      id: "mpu6050",
+      name: "MPU6050 (Accelerometer + Gyro)",
+      category: "Motion / Orientation",
+      function: "Measures acceleration on 3 axes and rotational velocity on 3 axes to determine orientation and movement.",
+      construction: "A single MEMS chip combining an accelerometer and gyroscope, plus an onboard digital motion processor, mounted on a small breakout board.",
+      pairing: "Arduino, ESP32 — communicates over I2C (SDA/SCL pins).",
+      examples: ["Self-balancing robots", "Drone flight controllers", "Phone screen auto-rotate"],
+      shape: { primitive: "box", args: "width:0.07; height:0.07; depth:0.015", color: "#4FC3F7" }
+    }
+  ];
 
-    let planeTerdeteksi = false; // akan jadi true saat hit-test menemukan permukaan
-    let jumlahObjekDibuat = 0;
+  let selectedSensorId = SENSOR_LIBRARY[0].id;
 
+  /* ---------- Start screen wiring ---------- */
+  const startScreen = document.getElementById('start-screen');
+  const scene = document.getElementById('scene');
+  const arUi = document.getElementById('ar-ui');
+  const unsupportedNotice = document.getElementById('ar-unsupported');
+
+  document.getElementById('btn-quiz').addEventListener('click', () => {
+    alert('Quiz mode reuses the Periodic Table quiz pattern — build next.');
+  });
+
+  document.getElementById('btn-scan').addEventListener('click', async () => {
+    if (navigator.xr && await navigator.xr.isSessionSupported('immersive-ar')) {
+      startScreen.style.display = 'none';
+      scene.style.display = 'block';
+      arUi.style.display = 'block';
+      scene.enterAR ? scene.enterAR() : scene.emit('enter-vr-triggered');
+      document.querySelector('a-scene').systems['webxr'] || true;
+      // A-Frame exposes AR entry through the scene's built-in button system;
+      // trigger it directly:
+      document.querySelector('a-scene').components.webxr ? null : null;
+      enterARSession();
+    } else {
+      unsupportedNotice.style.display = 'block';
+    }
+  });
+
+  function enterARSession() {
     const sceneEl = document.querySelector('a-scene');
-    const reticle = document.querySelector('#reticle');
-    const planeStatusEl = document.querySelector('#planeStatus');
-    const objectCountEl = document.querySelector('#objectCount');
-    const startArBtn = document.querySelector('#startArBtn');
+    if (sceneEl.is('vr-mode')) return;
+    sceneEl.enterVR(true); // true = requests AR when WebXR + hit-test configured
+  }
 
-    // This click is what actually triggers the browser's camera permission prompt
-    startArBtn.addEventListener('click', () => {
-      if (navigator.xr) {
-        sceneEl.enterAR();
-        startArBtn.style.display = 'none';
-      } else {
-        alert('WebXR tidak didukung di browser ini. Gunakan Chrome di Android.');
-      }
+  document.getElementById('exit-ar').addEventListener('click', () => {
+    document.querySelector('a-scene').exitVR();
+  });
+
+  /* ---------- Sensor toolbar ---------- */
+  const toolbar = document.getElementById('sensor-toolbar');
+  SENSOR_LIBRARY.forEach(s => {
+    const chip = document.createElement('button');
+    chip.className = 'toolbar-chip' + (s.id === selectedSensorId ? ' active' : '');
+    chip.textContent = s.name;
+    chip.dataset.id = s.id;
+    chip.addEventListener('click', () => {
+      selectedSensorId = s.id;
+      [...toolbar.children].forEach(c => c.classList.toggle('active', c.dataset.id === s.id));
     });
+    toolbar.appendChild(chip);
+  });
 
-    let hitTestSource = null;
-    let localSpace = null;
-    let lastHitPose = null;
+  /* ---------- Info panel ---------- */
+  const infoPanel = document.getElementById('info-panel');
+  document.getElementById('info-close').addEventListener('click', () => {
+    infoPanel.classList.remove('open');
+  });
 
-    sceneEl.addEventListener('enter-vr', () => {
-      const xrSession = sceneEl.renderer.xr.getSession();
-      if (!xrSession) return;
-
-      xrSession.addEventListener('end', () => {
-        hitTestSource = null;
-      });
-
-      // Setup hit-test source
-      xrSession.requestReferenceSpace('viewer').then((refSpace) => {
-        xrSession.requestHitTestSource({ space: refSpace }).then((source) => {
-          hitTestSource = source;
-        });
-      });
-
-      sceneEl.renderer.xr.getReferenceSpace &&
-        (localSpace = sceneEl.renderer.xr.getReferenceSpace());
-
-      // Tap to place
-      xrSession.addEventListener('select', onSelect);
+  function openInfoPanel(sensor) {
+    document.getElementById('info-name').textContent = sensor.name;
+    document.getElementById('info-id').textContent = sensor.category.toUpperCase();
+    document.getElementById('info-function').textContent = sensor.function;
+    document.getElementById('info-construction').textContent = sensor.construction;
+    document.getElementById('info-pairing').textContent = sensor.pairing;
+    const ul = document.getElementById('info-examples');
+    ul.innerHTML = '';
+    sensor.examples.forEach(ex => {
+      const li = document.createElement('li');
+      li.textContent = ex;
+      ul.appendChild(li);
     });
+    infoPanel.classList.add('open');
+  }
 
-    function onSelect() {
-      const sudahTap = true; // event select = user tapped screen
+  /* =========================================================
+     HIT-TEST + PLACEMENT COMPONENT
+     Uses renderer.xr.getFrame() (three.js r160+, bundled with
+     A-Frame 1.5) so we don't need a third-party AR component.
+  ========================================================= */
+  AFRAME.registerComponent('hit-test-manager', {
+    init: function () {
+      this.reticle = document.getElementById('reticle');
+      this.placedRoot = document.getElementById('placed-sensors');
+      this.hitTestSource = null;
+      this.localSpace = null;
+      this.hint = document.getElementById('hit-hint');
 
-      // Sama seperti logika sebelumnya:
-      // Jika planeTerdeteksi DAN sudahTap -> objek dapat ditempatkan
-      if (planeTerdeteksi && sudahTap && lastHitPose) {
-        if (jumlahObjekDibuat < jumlahObjekMax) {
-          placeCube(lastHitPose);
-          jumlahObjekDibuat++;
-          objectCountEl.textContent = jumlahObjekDibuat;
-          console.log("Membuat objek ke-" + jumlahObjekDibuat);
-        } else {
-          console.log("Jumlah objek maksimum (" + jumlahObjekMax + ") sudah tercapai");
-        }
+      this.el.addEventListener('enter-vr', () => this.onSessionStart());
+      this.el.addEventListener('exit-vr', () => this.onSessionEnd());
+    },
+
+    onSessionStart: async function () {
+      const renderer = this.el.renderer;
+      const session = renderer.xr.getSession();
+      if (!session) return;
+
+      this.localSpace = renderer.xr.getReferenceSpace();
+      const viewerSpace = await session.requestReferenceSpace('viewer');
+      this.hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
+
+      session.addEventListener('select', () => this.onSelect());
+      session.addEventListener('end', () => this.onSessionEnd());
+    },
+
+    onSessionEnd: function () {
+      this.hitTestSource = null;
+      this.reticle.setAttribute('visible', false);
+    },
+
+    onSelect: function () {
+      if (!this.reticle.getAttribute('visible')) return;
+      const pos = this.reticle.object3D.position;
+      this.placeSensor(pos.x, pos.y, pos.z);
+    },
+
+    placeSensor: function (x, y, z) {
+      const sensor = SENSOR_LIBRARY.find(s => s.id === selectedSensorId);
+      const entity = document.createElement('a-entity');
+      entity.setAttribute('geometry', `primitive: ${sensor.shape.primitive}; ${sensor.shape.args}`);
+      entity.setAttribute('material', `color: ${sensor.shape.color}; roughness: 0.5; metalness: 0.2`);
+      entity.setAttribute('position', `${x} ${y + 0.03} ${z}`);
+      entity.setAttribute('class', 'placed-sensor');
+      entity.dataset.sensorId = sensor.id;
+      entity.addEventListener('click', () => openInfoPanel(sensor));
+      this.placedRoot.appendChild(entity);
+      // fire it immediately so users see the info the first time they place one
+      openInfoPanel(sensor);
+    },
+
+    tick: function () {
+      if (!this.hitTestSource) return;
+      const renderer = this.el.renderer;
+      const frame = renderer.xr.getFrame && renderer.xr.getFrame();
+      if (!frame) return;
+
+      const hitResults = frame.getHitTestResults(this.hitTestSource);
+      if (hitResults.length > 0) {
+        const hit = hitResults[0];
+        const pose = hit.getPose(this.localSpace);
+        this.reticle.setAttribute('visible', true);
+        this.reticle.object3D.position.set(
+          pose.transform.position.x,
+          pose.transform.position.y,
+          pose.transform.position.z
+        );
+        this.hint.style.opacity = '0';
       } else {
-        console.log("Objek belum dapat ditempatkan");
+        this.reticle.setAttribute('visible', false);
+        this.hint.style.opacity = '1';
       }
     }
+  });
 
-    function placeCube(pose) {
-      const cube = document.createElement('a-box');
-      cube.setAttribute('width', ukuranObjek * 0.2);
-      cube.setAttribute('height', ukuranObjek * 0.2);
-      cube.setAttribute('depth', ukuranObjek * 0.2);
-      cube.setAttribute('color', '#4CC3D9');
-      cube.setAttribute('position', {
-        x: pose.transform.position.x,
-        y: pose.transform.position.y,
-        z: pose.transform.position.z
-      });
-      sceneEl.appendChild(cube);
-    }
+  document.querySelector('a-scene').setAttribute('hit-test-manager', '');
 
-    // Frame loop: run hit-test every frame to update plane detection + reticle
-    sceneEl.addEventListener('renderstart', () => {
-      const renderer = sceneEl.renderer;
-      const origAnimate = renderer.xr.getSession;
-
-      sceneEl.object3D.onBeforeRender = () => {};
-
-      renderer.setAnimationLoop((timestamp, frame) => {
-        if (frame && hitTestSource) {
-          const refSpace = renderer.xr.getReferenceSpace();
-          const hitTestResults = frame.getHitTestResults(hitTestSource);
-
-          if (hitTestResults.length > 0) {
-            const hit = hitTestResults[0];
-            const pose = hit.getPose(refSpace);
-
-            planeTerdeteksi = true;
-            lastHitPose = pose;
-            planeStatusEl.textContent = "Ditemukan";
-
-            reticle.setAttribute('visible', true);
-            reticle.object3D.position.set(
-              pose.transform.position.x,
-              pose.transform.position.y,
-              pose.transform.position.z
-            );
-          } else {
-            planeTerdeteksi = false;
-            planeStatusEl.textContent = "Belum ditemukan";
-            reticle.setAttribute('visible', false);
-          }
-        }
-        sceneEl.renderer.render(sceneEl.object3D, sceneEl.camera);
-      });
-    });
-  </script>
-
+  /* Tap-to-place needs raycaster on placed sensors for the info click */
+  document.querySelector('a-scene').setAttribute('raycaster', 'objects: .placed-sensor');
+  document.querySelector('a-scene').setAttribute('cursor', 'rayOrigin: mouse; fuse: false');
+</script>
 </body>
 </html>

@@ -162,7 +162,7 @@
   <!-- ========== AR SCENE ========== -->
   <a-scene
     id="scene"
-    webxr="requiredFeatures: hit-test; optionalFeatures: dom-overlay; overlayElement: #ar-ui;"
+    webxr="optionalFeatures: hit-test, dom-overlay; overlayElement: #ar-ui;"
     renderer="colorManagement: true; physicallyCorrectLights: true; alpha: true;"
     vr-mode-ui="enabled: false"
     background="transparent: true"
@@ -373,7 +373,9 @@
     init: function () {
       this.reticle = document.getElementById('reticle');
       this.placedRoot = document.getElementById('placed-sensors');
+      this.cameraEl = document.querySelector('a-scene').camera.el;
       this.hitTestSource = null;
+      this.hitTestSupported = false;
       this.localSpace = null;
       this.hint = document.getElementById('hit-hint');
 
@@ -387,8 +389,17 @@
       if (!session) return;
 
       this.localSpace = renderer.xr.getReferenceSpace();
-      const viewerSpace = await session.requestReferenceSpace('viewer');
-      this.hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
+      this.hitTestSupported = false;
+
+      try {
+        const viewerSpace = await session.requestReferenceSpace('viewer');
+        this.hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
+        this.hitTestSupported = true;
+      } catch (err) {
+        console.warn('hit-test unavailable on this device, falling back to tap-to-place:', err);
+        this.hitTestSource = null;
+        this.hint.textContent = 'Surface detection unavailable here — tap anywhere to place';
+      }
 
       session.addEventListener('select', () => this.onSelect());
       session.addEventListener('end', () => this.onSessionEnd());
@@ -400,9 +411,17 @@
     },
 
     onSelect: function () {
-      if (!this.reticle.getAttribute('visible')) return;
-      const pos = this.reticle.object3D.position;
-      this.placeSensor(pos.x, pos.y, pos.z);
+      if (this.hitTestSupported) {
+        if (!this.reticle.getAttribute('visible')) return;
+        const pos = this.reticle.object3D.position;
+        this.placeSensor(pos.x, pos.y, pos.z);
+      } else {
+        // Fallback: no surface detection available — place ~0.6m in front of the camera.
+        const camObj = this.cameraEl.object3D;
+        const forward = new THREE.Vector3(0, 0, -0.6).applyQuaternion(camObj.quaternion);
+        const pos = camObj.position.clone().add(forward);
+        this.placeSensor(pos.x, pos.y, pos.z);
+      }
     },
 
     placeSensor: function (x, y, z) {
@@ -420,7 +439,7 @@
     },
 
     tick: function () {
-      if (!this.hitTestSource) return;
+      if (!this.hitTestSupported || !this.hitTestSource) return;
       const renderer = this.el.renderer;
       const frame = renderer.xr.getFrame && renderer.xr.getFrame();
       if (!frame) return;

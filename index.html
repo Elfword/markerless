@@ -65,6 +65,13 @@
     display:none; margin-top: 18px; font-size:12px; color: var(--warn); line-height:1.5;
   }
 
+  /* ---------- Fallback camera feed (no-ARCore path) ---------- */
+  #camera-feed {
+    position:fixed; inset:0; width:100%; height:100%;
+    object-fit: cover; z-index: 5; display:none;
+  }
+  a-scene canvas { position:fixed !important; inset:0; z-index: 8 !important; }
+
   /* ---------- AR UI ---------- */
   #ar-ui { position:fixed; inset:0; z-index:10; display:none; pointer-events:none; }
   #hit-hint {
@@ -137,6 +144,9 @@
       </div>
     </div>
   </div>
+
+  <!-- ========== FALLBACK CAMERA FEED (no ARCore) ========== -->
+  <video id="camera-feed" autoplay playsinline muted></video>
 
   <!-- ========== AR OVERLAY UI ========== -->
   <div id="ar-ui">
@@ -276,31 +286,120 @@
   });
 
   document.getElementById('btn-scan').addEventListener('click', async () => {
-    if (!navigator.xr || !(await navigator.xr.isSessionSupported('immersive-ar'))) {
-      unsupportedNotice.style.display = 'block';
-      return;
-    }
+    const arSupported = navigator.xr && await navigator.xr.isSessionSupported('immersive-ar');
+
     startScreen.style.display = 'none';
     scene.style.display = 'block';
     arUi.style.display = 'block';
 
     const sceneEl = document.querySelector('a-scene');
-    try {
-      // useAR = true tells A-Frame to request an immersive-ar session
-      // (rather than immersive-vr) using the webxr component's config above.
-      await sceneEl.enterVR(true);
-    } catch (err) {
-      console.error('Failed to start AR session:', err);
-      alert('Could not start AR: ' + err.message + '\nCheck camera permission was granted to the browser.');
-      startScreen.style.display = 'flex';
-      scene.style.display = 'none';
-      arUi.style.display = 'none';
+
+    if (arSupported) {
+      try {
+        // useAR = true tells A-Frame to request an immersive-ar session
+        // (rather than immersive-vr) using the webxr component's config above.
+        await sceneEl.enterVR(true);
+        return; // hit-test-manager's enter-vr listener takes it from here
+      } catch (err) {
+        console.warn('Device reported AR support but session failed, falling back to camera+gyro mode:', err);
+        // fall through to the no-ARCore fallback below
+      }
     }
+
+    startFallbackAR();
   });
 
   document.getElementById('exit-ar').addEventListener('click', () => {
-    document.querySelector('a-scene').exitVR();
+    const sceneEl = document.querySelector('a-scene');
+    if (sceneEl.is('vr-mode')) {
+      sceneEl.exitVR(); // fires 'exit-vr' -> resetToStartScreen()
+    } else {
+      stopFallbackAR();
+    }
   });
+
+  function resetToStartScreen() {
+    startScreen.style.display = 'flex';
+    scene.style.display = 'none';
+    arUi.style.display = 'none';
+    document.getElementById('camera-feed').style.display = 'none';
+    document.getElementById('placed-sensors').innerHTML = '';
+  }
+  document.querySelector('a-scene').addEventListener('exit-vr', resetToStartScreen);
+
+  /* =========================================================
+     FALLBACK MODE — camera feed + device-orientation only.
+     Used whenever WebXR immersive-ar isn't available (no ARCore,
+     e.g. this device isn't certified) or the session errors out.
+     No real surface detection: objects are placed a fixed
+     distance in front of wherever the phone is currently facing,
+     and stay rotation-locked (not position-locked) as you look
+     around — same trade-off as most non-ARCore "AR" filters.
+  ========================================================= */
+  let fallbackTapHandler = null;
+
+  async function startFallbackAR() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' },
+        audio: false
+      });
+      const video = document.getElementById('camera-feed');
+      video.srcObject = stream;
+      await video.play();
+      video.style.display = 'block';
+
+      // Drive the A-Frame camera's rotation from the phone's gyroscope
+      // instead of WebXR pose tracking (this is A-Frame's normal
+      // "magic window" behavior — no VR/AR session needed for it).
+      const cameraEl = document.querySelector('a-scene').camera.el;
+      cameraEl.setAttribute('look-controls', 'magicWindowTrackingEnabled: true; touchEnabled: false; pointerLockEnabled: false');
+
+      document.getElementById('hit-hint').textContent = 'No surface detection on this device — tap anywhere to place';
+
+      const canvas = document.querySelector('a-scene').canvas;
+      fallbackTapHandler = () => {
+        const camObj = cameraEl.object3D;
+        const forward = new THREE.Vector3(0, 0, -0.6).applyQuaternion(camObj.quaternion);
+        const pos = camObj.position.clone().add(forward);
+        placeSensorAt(pos.x, pos.y, pos.z);
+      };
+      canvas.addEventListener('click', fallbackTapHandler);
+    } catch (err) {
+      console.error('Camera access failed:', err);
+      alert('Could not access the camera: ' + err.message + '\nCheck camera permission was granted to the browser.');
+      resetToStartScreen();
+    }
+  }
+
+  function stopFallbackAR() {
+    const video = document.getElementById('camera-feed');
+    if (video.srcObject) {
+      video.srcObject.getTracks().forEach(t => t.stop());
+      video.srcObject = null;
+    }
+    const canvas = document.querySelector('a-scene').canvas;
+    if (fallbackTapHandler) {
+      canvas.removeEventListener('click', fallbackTapHandler);
+      fallbackTapHandler = null;
+    }
+    resetToStartScreen();
+  }
+
+  /* ---------- Shared sensor placement (used by both AR paths) ---------- */
+  function placeSensorAt(x, y, z) {
+    const sensor = SENSOR_LIBRARY.find(s => s.id === selectedSensorId);
+    const entity = document.createElement('a-entity');
+    entity.setAttribute('geometry', `primitive: ${sensor.shape.primitive}; ${sensor.shape.args}`);
+    entity.setAttribute('material', `color: ${sensor.shape.color}; roughness: 0.5; metalness: 0.2`);
+    entity.setAttribute('position', `${x} ${y + 0.03} ${z}`);
+    entity.setAttribute('class', 'placed-sensor');
+    entity.dataset.sensorId = sensor.id;
+    entity.addEventListener('click', () => openInfoPanel(sensor));
+    document.getElementById('placed-sensors').appendChild(entity);
+    // fire it immediately so users see the info the first time they place one
+    openInfoPanel(sensor);
+  }
 
   /* ---------- Category / variant picker ---------- */
   const categoryToolbar = document.getElementById('category-toolbar');
@@ -412,30 +511,17 @@
 
     onSelect: function () {
       if (this.hitTestSupported) {
-        if (!this.reticle.getAttribute('visible')) return;
+        if (!this.reticle.object3D.visible) return;
         const pos = this.reticle.object3D.position;
-        this.placeSensor(pos.x, pos.y, pos.z);
+        placeSensorAt(pos.x, pos.y, pos.z);
       } else {
-        // Fallback: no surface detection available — place ~0.6m in front of the camera.
+        // Fallback within an active XR session: no hit-test feature,
+        // but AR mode itself is running — place ~0.6m in front of the camera.
         const camObj = this.cameraEl.object3D;
         const forward = new THREE.Vector3(0, 0, -0.6).applyQuaternion(camObj.quaternion);
         const pos = camObj.position.clone().add(forward);
-        this.placeSensor(pos.x, pos.y, pos.z);
+        placeSensorAt(pos.x, pos.y, pos.z);
       }
-    },
-
-    placeSensor: function (x, y, z) {
-      const sensor = SENSOR_LIBRARY.find(s => s.id === selectedSensorId);
-      const entity = document.createElement('a-entity');
-      entity.setAttribute('geometry', `primitive: ${sensor.shape.primitive}; ${sensor.shape.args}`);
-      entity.setAttribute('material', `color: ${sensor.shape.color}; roughness: 0.5; metalness: 0.2`);
-      entity.setAttribute('position', `${x} ${y + 0.03} ${z}`);
-      entity.setAttribute('class', 'placed-sensor');
-      entity.dataset.sensorId = sensor.id;
-      entity.addEventListener('click', () => openInfoPanel(sensor));
-      this.placedRoot.appendChild(entity);
-      // fire it immediately so users see the info the first time they place one
-      openInfoPanel(sensor);
     },
 
     tick: function () {
@@ -444,11 +530,24 @@
       const frame = renderer.xr.getFrame && renderer.xr.getFrame();
       if (!frame) return;
 
-      const hitResults = frame.getHitTestResults(this.hitTestSource);
+      let hitResults;
+      try {
+        hitResults = frame.getHitTestResults(this.hitTestSource);
+      } catch (err) {
+        // Transient tracking hiccup — skip this frame instead of throwing.
+        return;
+      }
+
       if (hitResults.length > 0) {
         const hit = hitResults[0];
         const pose = hit.getPose(this.localSpace);
-        this.reticle.setAttribute('visible', true);
+        if (!pose) {
+          // Tracking briefly lost confidence (common while moving) — just
+          // hide the reticle for this frame rather than crashing on a null pose.
+          this.reticle.object3D.visible = false;
+          return;
+        }
+        this.reticle.object3D.visible = true;
         this.reticle.object3D.position.set(
           pose.transform.position.x,
           pose.transform.position.y,
@@ -456,7 +555,7 @@
         );
         this.hint.style.opacity = '0';
       } else {
-        this.reticle.setAttribute('visible', false);
+        this.reticle.object3D.visible = false;
         this.hint.style.opacity = '1';
       }
     }

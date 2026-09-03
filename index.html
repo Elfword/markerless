@@ -395,10 +395,10 @@
     entity.setAttribute('position', `${x} ${y + 0.03} ${z}`);
     entity.setAttribute('class', 'placed-sensor');
     entity.dataset.sensorId = sensor.id;
-    entity.addEventListener('click', () => openInfoPanel(sensor));
+    entity.addEventListener('click', () => openInfoPanel(sensor, entity));
     document.getElementById('placed-sensors').appendChild(entity);
     // fire it immediately so users see the info the first time they place one
-    openInfoPanel(sensor);
+    openInfoPanel(sensor, entity);
   }
 
   /* ---------- Category / variant picker ---------- */
@@ -443,11 +443,18 @@
 
   /* ---------- Info panel ---------- */
   const infoPanel = document.getElementById('info-panel');
+  let currentInfoEntity = null;
+
   document.getElementById('info-close').addEventListener('click', () => {
+    if (currentInfoEntity && currentInfoEntity.parentNode) {
+      currentInfoEntity.parentNode.removeChild(currentInfoEntity);
+    }
+    currentInfoEntity = null;
     infoPanel.classList.remove('open');
   });
 
-  function openInfoPanel(sensor) {
+  function openInfoPanel(sensor, entity) {
+    currentInfoEntity = entity || null;
     document.getElementById('info-name').textContent = sensor.name;
     document.getElementById('info-id').textContent = sensor.category.toUpperCase();
     document.getElementById('info-function').textContent = sensor.function;
@@ -462,6 +469,14 @@
     });
     infoPanel.classList.add('open');
   }
+
+  /* WebXR quirk: a tap on a dom-overlay button (close, exit, toolbar
+     chips) can ALSO fire the underlying XR session's 'select' event
+     unless explicitly suppressed — which is what was spawning an
+     extra cube every time the info panel's ✕ was tapped. */
+  document.getElementById('ar-ui').addEventListener('beforexrselect', (e) => {
+    e.preventDefault();
+  });
 
   /* =========================================================
      HIT-TEST + PLACEMENT COMPONENT

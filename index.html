@@ -75,18 +75,21 @@
   /* ---------- Floating per-object chip (info + remove) ---------- */
   #floating-chips { position:fixed; inset:0; pointer-events:none; z-index:9; }
   .sensor-chip {
-    position:absolute; transform: translate(-50%, -140%);
-    display:flex; gap:6px; pointer-events:none;
+    position:absolute; transform: translate(-50%, -150%);
+    display:flex; gap:5px; pointer-events:none;
   }
   .chip-btn {
-    width:34px; height:34px; border-radius:50%; border:1px solid var(--copper);
-    background: rgba(10,46,34,0.92); color:var(--silk); font-size:15px; cursor:pointer;
-    pointer-events:all;
+    width:30px; height:30px; border-radius:50%; border:1px solid var(--copper);
+    background: rgba(10,46,34,0.94); color:var(--silk); font-size:13px; cursor:pointer;
+    pointer-events:all; display:flex; align-items:center; justify-content:center; padding:0;
   }
   .chip-remove { border-color: var(--warn); color: var(--warn); }
 
   /* ---------- AR UI ---------- */
-  #ar-ui { position:fixed; inset:0; z-index:10; display:none; pointer-events:none; }
+  #ar-ui {
+    position:fixed; inset:0; z-index:10; display:none; pointer-events:none;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
   #hit-hint {
     position:absolute; top: 24px; left:50%; transform:translateX(-50%);
     background: rgba(10,46,34,0.85); border:1px solid var(--copper);
@@ -132,19 +135,6 @@
   .info-row .value { font-size:14px; line-height:1.5; color: var(--silk); }
   .info-row ul { margin: 4px 0 0 16px; }
   .info-row li { font-size:13px; margin-bottom:2px; }
-
-  /* ---------- Manipulate controls (scale / rotate / move) ---------- */
-  #manipulate-controls { margin-top: 18px; border-top: 1px solid var(--trace); padding-top: 14px; }
-  .manip-row { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
-  .manip-row .manip-label { flex:1; font-size:11px; letter-spacing:1px; color:#9FBFB1; }
-  .manip-btn {
-    width:36px; height:36px; border-radius:6px; border:1px solid var(--trace);
-    background: var(--pcb-green); color:var(--silk); font-size:16px; cursor:pointer; font-family:inherit;
-  }
-  #move-btn {
-    width:100%; padding:12px; margin-top:4px; font-family:inherit; font-size:13px;
-    background: var(--pcb-green); color:var(--silk); border:1px solid var(--copper); border-radius:4px; cursor:pointer;
-  }
 </style>
 </head>
 <body>
@@ -194,20 +184,6 @@
       <div class="info-row"><div class="label">HOW IT'S MADE</div><div class="value" id="info-construction">—</div></div>
       <div class="info-row"><div class="label">PAIRS WITH</div><div class="value" id="info-pairing">—</div></div>
       <div class="info-row"><div class="label">FOUND IN</div><ul class="value" id="info-examples"></ul></div>
-
-      <div id="manipulate-controls">
-        <div class="manip-row">
-          <span class="manip-label">SIZE</span>
-          <button class="manip-btn" id="scale-down">−</button>
-          <button class="manip-btn" id="scale-up">+</button>
-        </div>
-        <div class="manip-row">
-          <span class="manip-label">ROTATE</span>
-          <button class="manip-btn" id="rotate-left">⟲</button>
-          <button class="manip-btn" id="rotate-right">⟳</button>
-        </div>
-        <button id="move-btn">Move to another spot</button>
-      </div>
     </div>
   </div>
 
@@ -432,17 +408,18 @@
   const entityChipMap = new Map(); // a-entity -> floating chip DOM element
   let moveModeEntity = null;
 
-  function handlePlacementTap(x, y, z) {
+  function handlePlacementTap(x, y, z, quaternion) {
     if (moveModeEntity) {
       moveModeEntity.setAttribute('position', `${x} ${y + 0.03} ${z}`);
+      if (quaternion) moveModeEntity.object3D.quaternion.copy(quaternion);
       moveModeEntity = null;
       document.getElementById('hit-hint').style.opacity = '0';
       return;
     }
-    placeSensorAt(x, y, z);
+    placeSensorAt(x, y, z, quaternion);
   }
 
-  function placeSensorAt(x, y, z) {
+  function placeSensorAt(x, y, z, quaternion) {
     const sensor = SENSOR_LIBRARY.find(s => s.id === selectedSensorId);
     const entity = document.createElement('a-entity');
     entity.setAttribute('geometry', `primitive: ${sensor.shape.primitive}; ${sensor.shape.args}`);
@@ -451,15 +428,24 @@
     entity.setAttribute('class', 'placed-sensor');
     entity.dataset.sensorId = sensor.id;
     document.getElementById('placed-sensors').appendChild(entity);
+    if (quaternion) entity.object3D.quaternion.copy(quaternion);
     createChipFor(entity, sensor);
   }
 
   function createChipFor(entity, sensor) {
     const chip = document.createElement('div');
     chip.className = 'sensor-chip';
-    chip.innerHTML = '<button class="chip-btn chip-info" title="Info">ℹ</button><button class="chip-btn chip-remove" title="Remove">🗑</button>';
-    chip.querySelector('.chip-info').addEventListener('click', () => openInfoPanel(sensor, entity));
-    chip.querySelector('.chip-remove').addEventListener('click', () => removeSensor(entity));
+    chip.innerHTML =
+      '<button class="chip-btn" data-action="info" title="Info">ℹ</button>' +
+      '<button class="chip-btn" data-action="move" title="Move">✥</button>' +
+      '<button class="chip-btn" data-action="resize" title="Resize">⤢</button>' +
+      '<button class="chip-btn" data-action="rotate" title="Rotate">⟳</button>' +
+      '<button class="chip-btn chip-remove" data-action="delete" title="Delete">🗑</button>';
+    chip.querySelector('[data-action="info"]').addEventListener('click', () => openInfoPanel(sensor, entity));
+    chip.querySelector('[data-action="move"]').addEventListener('click', () => armMoveMode(entity));
+    chip.querySelector('[data-action="resize"]').addEventListener('click', () => cycleResize(entity));
+    chip.querySelector('[data-action="rotate"]').addEventListener('click', () => cycleRotate(entity));
+    chip.querySelector('[data-action="delete"]').addEventListener('click', () => removeSensor(entity));
     document.getElementById('floating-chips').appendChild(chip);
     entityChipMap.set(entity, chip);
   }
@@ -569,29 +555,28 @@
     infoPanel.classList.add('open');
   }
 
-  /* ---------- Manipulate: scale / rotate / move ---------- */
-  function scaleEntity(factor) {
-    if (!currentInfoEntity) return;
-    const s = currentInfoEntity.object3D.scale;
-    const next = THREE.MathUtils.clamp(s.x * factor, 0.3, 3);
-    s.set(next, next, next);
+  /* ---------- Manipulate: scale / rotate / move (triggered from the object's own chip) ---------- */
+  const SCALE_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+  const entityScaleIndex = new WeakMap();
+
+  function cycleResize(entity) {
+    let idx = entityScaleIndex.get(entity);
+    if (idx === undefined) idx = SCALE_STEPS.indexOf(1);
+    idx = (idx + 1) % SCALE_STEPS.length;
+    entityScaleIndex.set(entity, idx);
+    const s = SCALE_STEPS[idx];
+    entity.object3D.scale.set(s, s, s);
   }
-  function rotateEntity(deg) {
-    if (!currentInfoEntity) return;
-    currentInfoEntity.object3D.rotation.y += THREE.MathUtils.degToRad(deg);
+  function cycleRotate(entity) {
+    entity.object3D.rotation.y += THREE.MathUtils.degToRad(30);
   }
-  document.getElementById('scale-down').addEventListener('click', () => scaleEntity(0.85));
-  document.getElementById('scale-up').addEventListener('click', () => scaleEntity(1.15));
-  document.getElementById('rotate-left').addEventListener('click', () => rotateEntity(-15));
-  document.getElementById('rotate-right').addEventListener('click', () => rotateEntity(15));
-  document.getElementById('move-btn').addEventListener('click', () => {
-    if (!currentInfoEntity) return;
-    moveModeEntity = currentInfoEntity;
+  function armMoveMode(entity) {
+    moveModeEntity = entity;
     infoPanel.classList.remove('open');
     const hint = document.getElementById('hit-hint');
     hint.textContent = 'Tap where you want to move it';
     hint.style.opacity = '1';
-  });
+  }
 
   /* WebXR quirk: a tap on a dom-overlay button (close, exit, toolbar
      chips) can ALSO fire the underlying XR session's 'select' event
@@ -605,7 +590,13 @@
      HIT-TEST + PLACEMENT COMPONENT
      Uses renderer.xr.getFrame() (three.js r160+, bundled with
      A-Frame 1.5) so we don't need a third-party AR component.
+     Applies the hit result's full orientation (not just position)
+     so placement aligns correctly to walls as well as floors —
+     the WebXR hit-test pose's Y-axis points along the detected
+     surface's normal, whether that surface is horizontal or vertical.
   ========================================================= */
+  const RETICLE_CORRECTION = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
+
   AFRAME.registerComponent('hit-test-manager', {
     init: function () {
       this.reticle = document.getElementById('reticle');
@@ -651,7 +642,7 @@
       if (this.hitTestSupported) {
         if (!this.reticle.object3D.visible) return;
         const pos = this.reticle.object3D.position;
-        handlePlacementTap(pos.x, pos.y, pos.z);
+        handlePlacementTap(pos.x, pos.y, pos.z, this.reticle.object3D.quaternion.clone());
       } else {
         // Fallback within an active XR session: no hit-test feature,
         // but AR mode itself is running — place ~0.6m in front of the camera.
@@ -691,6 +682,16 @@
           pose.transform.position.y,
           pose.transform.position.z
         );
+        const poseQuat = new THREE.Quaternion(
+          pose.transform.orientation.x,
+          pose.transform.orientation.y,
+          pose.transform.orientation.z,
+          pose.transform.orientation.w
+        );
+        // The ring primitive's default face normal is local +Z; rotate it
+        // -90° about X first so that "flat" corresponds to the pose's own
+        // +Y (surface normal), then apply the pose's real-world orientation.
+        this.reticle.object3D.quaternion.copy(poseQuat).multiply(RETICLE_CORRECTION);
         this.hint.style.opacity = '0';
       } else {
         this.reticle.object3D.visible = false;

@@ -118,23 +118,43 @@
   .variant-chip.active { border-color: var(--led); color: var(--led); }
 
   /* ---------- INFO PANEL ---------- */
-  #info-panel {
+  #info-panel, #transform-panel {
     position:absolute; left:0; right:0; bottom:0; z-index:15;
     pointer-events:all; transform: translateY(100%); transition: transform .25s ease;
     background: rgba(9,38,29,0.97); border-top: 2px solid var(--copper);
     max-height: 62%; overflow-y:auto; padding: 20px 20px 28px;
   }
-  #info-panel.open { transform: translateY(0); }
-  #info-panel .close-x {
+  #info-panel.open, #transform-panel.open { transform: translateY(0); }
+  #info-panel .close-x, #transform-panel .close-x {
     position:absolute; top:12px; right:16px; font-size:20px; color:#9FBFB1; cursor:pointer;
   }
-  #info-panel h2 { font-family: Georgia, serif; font-size:20px; color:var(--copper-bright); margin-bottom:4px; }
+  #info-panel h2, #transform-panel h2 { font-family: Georgia, serif; font-size:20px; color:var(--copper-bright); margin-bottom:4px; }
   #info-panel .id-tag { font-size:11px; color:#9FBFB1; letter-spacing:1px; margin-bottom:16px; }
   .info-row { margin-bottom:14px; }
   .info-row .label { font-size:10px; letter-spacing:1.5px; color: var(--led); margin-bottom:3px; }
   .info-row .value { font-size:14px; line-height:1.5; color: var(--silk); }
   .info-row ul { margin: 4px 0 0 16px; }
   .info-row li { font-size:13px; margin-bottom:2px; }
+
+  /* ---------- Transform panel (Blender-style XYZ) ---------- */
+  .xyz-group { margin: 16px 0; }
+  .xyz-label { font-size:10px; letter-spacing:1.5px; color: var(--led); margin-bottom:8px; }
+  .xyz-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .xyz-row > span:first-child { width:14px; font-size:12px; color:#9FBFB1; }
+  .xyz-row input[type="range"] { flex:1; accent-color: var(--copper); }
+  .xyz-val { width:44px; text-align:right; font-size:12px; color: var(--silk); font-variant-numeric: tabular-nums; }
+  .uniform-toggle { display:flex; align-items:center; gap:8px; font-size:12px; color:#9FBFB1; margin-top:4px; }
+  #transform-move-btn {
+    width:100%; padding:12px; margin-top:10px; font-size:13px;
+    background: var(--pcb-green); color:var(--silk); border:1px solid var(--copper); border-radius:4px; cursor:pointer;
+  }
+
+  /* ---------- Surface status (wall/floor diagnostic) ---------- */
+  #surface-status {
+    position:absolute; top: 58px; left:50%; transform:translateX(-50%);
+    font-size:11px; color: var(--led); background: rgba(10,46,34,0.7);
+    padding:4px 10px; border-radius:12px; pointer-events:none;
+  }
 </style>
 </head>
 <body>

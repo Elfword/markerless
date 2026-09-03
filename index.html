@@ -72,19 +72,25 @@
   }
   a-scene canvas { position:fixed !important; inset:0; z-index: 8 !important; }
 
-  /* ---------- Floating per-object chip ---------- */
-  #floating-chips { position:fixed; inset:0; pointer-events:none; z-index:9; }
+  /* ---------- Floating active-selection chip ---------- */
+  #active-chip-container {
+    position:fixed; inset:0; pointer-events:none; z-index:9;
+  }
   .sensor-chip {
     position:absolute; transform: translate(-50%, -150%);
-    display:flex; gap:6px; pointer-events:none;
+    display:none; gap:6px; pointer-events:none;
+    animation: fadeIn 0.15s ease-out forwards;
   }
+  @keyframes fadeIn { from { opacity: 0; transform: translate(-50%, -130%); } to { opacity: 1; transform: translate(-50%, -150%); } }
+
   .chip-btn {
     min-width:32px; height:32px; border-radius:16px; border:1px solid var(--copper);
-    background: rgba(10,46,34,0.94); color:var(--silk); font-size:12px; cursor:pointer;
+    background: rgba(10,46,34,0.96); color:var(--silk); font-size:12px; cursor:pointer;
     pointer-events:all; display:flex; align-items:center; justify-content:center; padding:0 8px;
-    font-family: inherit; font-weight: bold;
+    font-family: inherit; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.5);
   }
   .chip-remove { border-color: var(--warn); color: var(--warn); }
+  .chip-close { border-color: #9FBFB1; color: #9FBFB1; font-size: 10px; }
 
   /* ---------- AR UI ---------- */
   #ar-ui {
@@ -123,7 +129,7 @@
     position: absolute; top: 16px; left: 16px; z-index: 16;
     background: rgba(10, 46, 34, 0.95); border: 1px solid var(--copper);
     border-radius: 4px; padding: 12px; font-family: 'Courier New', monospace;
-    color: var(--silk); width: 270px; pointer-events: all; display: none;
+    color: var(--silk); width: 280px; pointer-events: all; display: none;
     box-shadow: 0 4px 16px rgba(0,0,0,0.4);
   }
   .dock-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; color: var(--copper-bright); }
@@ -139,8 +145,14 @@
   .axis-x { color: #E0574B; }
   .axis-y { color: #81C784; }
   .axis-z { color: #4FC3F7; }
+  .axis-all { color: var(--copper-bright); width: 32px; }
   .axis-slider { flex: 1; accent-color: var(--copper-bright); height: 4px; }
   .axis-val { width: 44px; text-align: right; color: #9FBFB1; font-size: 10px; }
+
+  #uniform-scale-row {
+    padding-bottom: 8px; margin-bottom: 4px; border-bottom: 1px dashed var(--trace);
+    display: none;
+  }
 
   /* ---------- INFO PANEL ---------- */
   #info-panel {
@@ -206,6 +218,13 @@
         <button class="mode-tab" data-mode="scale">SCALE [S]</button>
       </div>
       <div class="axis-group">
+        <!-- Scale-All Slider -->
+        <div class="axis-row" id="uniform-scale-row">
+          <span class="axis-label axis-all">ALL</span>
+          <input type="range" class="axis-slider" id="slider-all" min="0.01" max="5.0" step="0.01">
+          <span class="axis-val" id="val-all">1.0x</span>
+        </div>
+
         <div class="axis-row">
           <span class="axis-label axis-x">X</span>
           <input type="range" class="axis-slider" id="slider-x" min="-180" max="180" step="0.01">
@@ -224,7 +243,16 @@
       </div>
     </div>
 
-    <div id="floating-chips"></div>
+    <!-- Active Selection Context Menu -->
+    <div id="active-chip-container">
+      <div id="single-chip" class="sensor-chip">
+        <button class="chip-btn" id="chip-info" title="Info">ℹ</button>
+        <button class="chip-btn" id="chip-transform" title="Blender Transform">XYZ</button>
+        <button class="chip-btn" id="chip-reposition" title="Reposition">✥</button>
+        <button class="chip-btn chip-remove" id="chip-delete" title="Delete">🗑</button>
+        <button class="chip-btn chip-close" id="chip-dismiss" title="Deselect">✕</button>
+      </div>
+    </div>
 
     <div id="picker">
       <div id="category-toolbar"></div>
@@ -405,10 +433,13 @@
       const cameraEl = document.querySelector('a-scene').camera.el;
       cameraEl.setAttribute('look-controls', 'magicWindowTrackingEnabled: true; touchEnabled: false; pointerLockEnabled: false');
 
-      document.getElementById('hit-hint').textContent = 'Fallback mode — tap anywhere to place';
+      document.getElementById('hit-hint').textContent = 'Fallback mode — tap anywhere to place or tap an object to select';
 
       const canvas = document.querySelector('a-scene').canvas;
-      fallbackTapHandler = () => {
+      fallbackTapHandler = (e) => {
+        // First check if user clicked an existing object
+        if (checkObjectHit(e.clientX, e.clientY)) return;
+
         const camObj = cameraEl.object3D;
         const forward = new THREE.Vector3(0, 0, -0.6).applyQuaternion(camObj.quaternion);
         const pos = camObj.position.clone().add(forward);
@@ -436,10 +467,111 @@
     resetToStartScreen();
   }
 
-  /* ---------- Shared Sensor Placement & Surface Normals ---------- */
-  const entityChipMap = new Map();
+  /* ---------- Object Selection & Raycast Picking ---------- */
+  let selectedEntity = null;
   let moveModeEntity = null;
+  const singleChip = document.getElementById('single-chip');
 
+  function checkObjectHit(screenX, screenY) {
+    const sceneEl = document.querySelector('a-scene');
+    const camera = sceneEl.camera;
+    if (!camera) return false;
+
+    const mouse = new THREE.Vector2(
+      (screenX / window.innerWidth) * 2 - 1,
+      -(screenY / window.innerHeight) * 2 + 1
+    );
+
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, camera);
+
+    const placedContainer = document.getElementById('placed-sensors');
+    const meshes = [];
+    placedContainer.childNodes.forEach(el => {
+      if (el.object3D) {
+        el.object3D.traverse(child => {
+          if (child.isMesh) {
+            child.userData.entity = el;
+            meshes.push(child);
+          }
+        });
+      }
+    });
+
+    const intersects = raycaster.intersectObjects(meshes, true);
+    if (intersects.length > 0) {
+      const hitEntity = intersects[0].object.userData.entity;
+      if (hitEntity) {
+        selectSensor(hitEntity);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function selectSensor(entity) {
+    selectedEntity = entity;
+    singleChip.style.display = 'flex';
+  }
+
+  function deselectSensor() {
+    selectedEntity = null;
+    singleChip.style.display = 'none';
+    closeBlenderDock();
+  }
+
+  document.getElementById('chip-dismiss').addEventListener('click', deselectSensor);
+
+  document.getElementById('chip-info').addEventListener('click', () => {
+    if (!selectedEntity) return;
+    const sensor = SENSOR_LIBRARY.find(s => s.id === selectedEntity.dataset.sensorId);
+    openInfoPanel(sensor, selectedEntity);
+  });
+
+  document.getElementById('chip-transform').addEventListener('click', () => {
+    if (!selectedEntity) return;
+    const sensor = SENSOR_LIBRARY.find(s => s.id === selectedEntity.dataset.sensorId);
+    openBlenderDock(selectedEntity, sensor.name);
+  });
+
+  document.getElementById('chip-reposition').addEventListener('click', () => {
+    if (!selectedEntity) return;
+    armMoveMode(selectedEntity);
+  });
+
+  document.getElementById('chip-delete').addEventListener('click', () => {
+    if (!selectedEntity) return;
+    removeSensor(selectedEntity);
+  });
+
+  function removeSensor(entity) {
+    if (selectedEntity === entity) deselectSensor();
+    if (entity.parentNode) entity.parentNode.removeChild(entity);
+    if (currentInfoEntity === entity) {
+      currentInfoEntity = null;
+      infoPanel.classList.remove('open');
+    }
+    if (moveModeEntity === entity) moveModeEntity = null;
+  }
+
+  function clearAllSensors() {
+    deselectSensor();
+    document.getElementById('placed-sensors').innerHTML = '';
+    currentInfoEntity = null;
+    moveModeEntity = null;
+  }
+
+  function armMoveMode(entity) {
+    moveModeEntity = entity;
+    infoPanel.classList.remove('open');
+    closeBlenderDock();
+    singleChip.style.display = 'none';
+    const hint = document.getElementById('hit-hint');
+    hint.textContent = 'Tap on a surface to reposition';
+    hint.style.opacity = '1';
+  }
+
+  /* Shared Sensor Placement */
   function handlePlacementTap(posVector, quat) {
     if (moveModeEntity) {
       if (quat) {
@@ -449,6 +581,7 @@
       } else {
         moveModeEntity.object3D.position.copy(posVector);
       }
+      selectSensor(moveModeEntity);
       moveModeEntity = null;
       document.getElementById('hit-hint').style.opacity = '0';
       return;
@@ -466,7 +599,6 @@
     document.getElementById('placed-sensors').appendChild(entity);
 
     if (quat) {
-      // Offset perpendicular to detected surface (floor, wall, ceiling)
       const normal = new THREE.Vector3(0, 1, 0).applyQuaternion(quat);
       entity.object3D.position.copy(posVector).addScaledVector(normal, 0.03);
       entity.object3D.quaternion.copy(quat);
@@ -474,90 +606,46 @@
       entity.object3D.position.copy(posVector).add(new THREE.Vector3(0, 0.03, 0));
     }
 
-    createChipFor(entity, sensor);
+    // Auto-select the freshly placed entity
+    selectSensor(entity);
   }
 
-  function createChipFor(entity, sensor) {
-    const chip = document.createElement('div');
-    chip.className = 'sensor-chip';
-    chip.innerHTML =
-      '<button class="chip-btn" data-action="info" title="Info">ℹ</button>' +
-      '<button class="chip-btn" data-action="transform" title="Blender Transform">XYZ</button>' +
-      '<button class="chip-btn" data-action="reposition" title="Reposition">✥</button>' +
-      '<button class="chip-btn chip-remove" data-action="delete" title="Delete">🗑</button>';
-
-    chip.querySelector('[data-action="info"]').addEventListener('click', () => openInfoPanel(sensor, entity));
-    chip.querySelector('[data-action="transform"]').addEventListener('click', () => openBlenderDock(entity, sensor.name));
-    chip.querySelector('[data-action="reposition"]').addEventListener('click', () => armMoveMode(entity));
-    chip.querySelector('[data-action="delete"]').addEventListener('click', () => removeSensor(entity));
-
-    document.getElementById('floating-chips').appendChild(chip);
-    entityChipMap.set(entity, chip);
-  }
-
-  function removeSensor(entity) {
-    if (activeEntity === entity) closeBlenderDock();
-    const chip = entityChipMap.get(entity);
-    if (chip) chip.remove();
-    entityChipMap.delete(entity);
-    if (entity.parentNode) entity.parentNode.removeChild(entity);
-    if (currentInfoEntity === entity) {
-      currentInfoEntity = null;
-      infoPanel.classList.remove('open');
-    }
-    if (moveModeEntity === entity) moveModeEntity = null;
-  }
-
-  function clearAllSensors() {
-    closeBlenderDock();
-    entityChipMap.forEach(chip => chip.remove());
-    entityChipMap.clear();
-    document.getElementById('placed-sensors').innerHTML = '';
-    currentInfoEntity = null;
-    moveModeEntity = null;
-  }
-
-  function armMoveMode(entity) {
-    moveModeEntity = entity;
-    infoPanel.classList.remove('open');
-    closeBlenderDock();
-    const hint = document.getElementById('hit-hint');
-    hint.textContent = 'Tap on a surface to reposition';
-    hint.style.opacity = '1';
-  }
-
-  /* Screen Projection for Object Chips */
+  /* Single Screen Projection Updater for Selected Entity Only */
   AFRAME.registerComponent('chip-updater', {
     tick: function () {
       const camera = this.el.camera;
-      if (!camera) return;
+      if (!camera || !selectedEntity || !selectedEntity.object3D) return;
+
       const worldPos = new THREE.Vector3();
-      entityChipMap.forEach((chip, entity) => {
-        if (!entity.object3D) return;
-        entity.object3D.getWorldPosition(worldPos);
-        const projected = worldPos.clone().project(camera);
-        if (projected.z > 1) { chip.style.display = 'none'; return; }
-        chip.style.display = 'flex';
-        chip.style.left = ((projected.x * 0.5 + 0.5) * window.innerWidth) + 'px';
-        chip.style.top = ((1 - (projected.y * 0.5 + 0.5)) * window.innerHeight) + 'px';
-      });
+      selectedEntity.object3D.getWorldPosition(worldPos);
+      const projected = worldPos.clone().project(camera);
+
+      if (projected.z > 1) {
+        singleChip.style.display = 'none';
+        return;
+      }
+      singleChip.style.display = 'flex';
+      singleChip.style.left = ((projected.x * 0.5 + 0.5) * window.innerWidth) + 'px';
+      singleChip.style.top = ((1 - (projected.y * 0.5 + 0.5)) * window.innerHeight) + 'px';
     }
   });
   document.querySelector('a-scene').setAttribute('chip-updater', '');
 
-  /* ---------- Blender-Style Transform Dock Logic ---------- */
-  let activeEntity = null;
+  /* ---------- Blender-Style Transform Dock Logic (Infinite & Uniform Scale) ---------- */
   let currentMode = 'translate';
   const dock = document.getElementById('blender-dock');
   const sliderX = document.getElementById('slider-x');
   const sliderY = document.getElementById('slider-y');
   const sliderZ = document.getElementById('slider-z');
+  const sliderAll = document.getElementById('slider-all');
+  const uniformRow = document.getElementById('uniform-scale-row');
   const valX = document.getElementById('val-x');
   const valY = document.getElementById('val-y');
   const valZ = document.getElementById('val-z');
+  const valAll = document.getElementById('val-all');
 
   function openBlenderDock(entity, label) {
-    activeEntity = entity;
+    selectedEntity = entity;
     document.getElementById('dock-target-name').textContent = label;
     dock.style.display = 'block';
     infoPanel.classList.remove('open');
@@ -566,7 +654,6 @@
 
   function closeBlenderDock() {
     dock.style.display = 'none';
-    activeEntity = null;
   }
   document.getElementById('dock-close').addEventListener('click', closeBlenderDock);
 
@@ -580,17 +667,17 @@
   });
 
   function updateSlidersForMode() {
-    if (!activeEntity) return;
-    const obj = activeEntity.object3D;
+    if (!selectedEntity) return;
+    const obj = selectedEntity.object3D;
 
     if (currentMode === 'translate') {
-      // Relative translation sliders along object local axis
+      uniformRow.style.display = 'none';
       sliderX.min = -0.3; sliderX.max = 0.3; sliderX.step = 0.002; sliderX.value = 0;
       sliderY.min = -0.3; sliderY.max = 0.3; sliderY.step = 0.002; sliderY.value = 0;
       sliderZ.min = -0.3; sliderZ.max = 0.3; sliderZ.step = 0.002; sliderZ.value = 0;
       valX.textContent = '0m'; valY.textContent = '0m'; valZ.textContent = '0m';
     } else if (currentMode === 'rotate') {
-      // Absolute Euler rotation degrees
+      uniformRow.style.display = 'none';
       sliderX.min = -180; sliderX.max = 180; sliderX.step = 1;
       sliderY.min = -180; sliderY.max = 180; sliderY.step = 1;
       sliderZ.min = -180; sliderZ.max = 180; sliderZ.step = 1;
@@ -600,21 +687,37 @@
       sliderX.value = degX; sliderY.value = degY; sliderZ.value = degZ;
       valX.textContent = degX + '°'; valY.textContent = degY + '°'; valZ.textContent = degZ + '°';
     } else if (currentMode === 'scale') {
-      // Scale multiplier per-axis
-      sliderX.min = 0.1; sliderX.max = 3.5; sliderX.step = 0.02; sliderX.value = obj.scale.x;
-      sliderY.min = 0.1; sliderY.max = 3.5; sliderY.step = 0.02; sliderY.value = obj.scale.y;
-      sliderZ.min = 0.1; sliderZ.max = 3.5; sliderZ.step = 0.02; sliderZ.value = obj.scale.z;
+      uniformRow.style.display = 'flex';
+      
+      // Auto-expand bounds around current scale to ensure infinite room
+      configureScaleSlider(sliderX, obj.scale.x);
+      configureScaleSlider(sliderY, obj.scale.y);
+      configureScaleSlider(sliderZ, obj.scale.z);
+      
+      const avgScale = (obj.scale.x + obj.scale.y + obj.scale.z) / 3;
+      configureScaleSlider(sliderAll, avgScale);
+
       valX.textContent = obj.scale.x.toFixed(2) + 'x';
       valY.textContent = obj.scale.y.toFixed(2) + 'x';
       valZ.textContent = obj.scale.z.toFixed(2) + 'x';
+      valAll.textContent = avgScale.toFixed(2) + 'x';
     }
+  }
+
+  function configureScaleSlider(slider, currentVal) {
+    const minVal = Math.max(0.001, currentVal * 0.2);
+    const maxVal = Math.max(2.0, currentVal * 2.5);
+    slider.min = minVal;
+    slider.max = maxVal;
+    slider.step = (maxVal - minVal) / 200;
+    slider.value = currentVal;
   }
 
   let prevTransX = 0, prevTransY = 0, prevTransZ = 0;
 
   function handleTransformInput(e) {
-    if (!activeEntity) return;
-    const obj = activeEntity.object3D;
+    if (!selectedEntity) return;
+    const obj = selectedEntity.object3D;
     const vx = parseFloat(sliderX.value);
     const vy = parseFloat(sliderY.value);
     const vz = parseFloat(sliderZ.value);
@@ -644,17 +747,35 @@
       valX.textContent = vx.toFixed(2) + 'x';
       valY.textContent = vy.toFixed(2) + 'x';
       valZ.textContent = vz.toFixed(2) + 'x';
+      valAll.textContent = ((vx + vy + vz) / 3).toFixed(2) + 'x';
     }
   }
 
-  [sliderX, sliderY, sliderZ].forEach(slider => {
+  // Uniform scale slider event
+  sliderAll.addEventListener('input', () => {
+    if (!selectedEntity || currentMode !== 'scale') return;
+    const obj = selectedEntity.object3D;
+    const s = parseFloat(sliderAll.value);
+    obj.scale.set(s, s, s);
+    sliderX.value = s;
+    sliderY.value = s;
+    sliderZ.value = s;
+    valX.textContent = s.toFixed(2) + 'x';
+    valY.textContent = s.toFixed(2) + 'x';
+    valZ.textContent = s.toFixed(2) + 'x';
+    valAll.textContent = s.toFixed(2) + 'x';
+  });
+
+  [sliderX, sliderY, sliderZ, sliderAll].forEach(slider => {
     slider.addEventListener('input', handleTransformInput);
     slider.addEventListener('change', () => {
       if (currentMode === 'translate') {
-        // Reset relative translation scrub on release
         sliderX.value = 0; sliderY.value = 0; sliderZ.value = 0;
         prevTransX = 0; prevTransY = 0; prevTransZ = 0;
         valX.textContent = '0m'; valY.textContent = '0m'; valZ.textContent = '0m';
+      } else if (currentMode === 'scale') {
+        // Infinite scrub: reset slider bounds relative to current scale
+        updateSlidersForMode();
       }
     });
   });
@@ -728,7 +849,7 @@
     e.preventDefault();
   });
 
-  /* ---------- WebXR Hit-Test Manager (Walls + Floors) ---------- */
+  /* ---------- WebXR Hit-Test Manager ---------- */
   const RETICLE_CORRECTION = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
 
   AFRAME.registerComponent('hit-test-manager', {
@@ -763,7 +884,7 @@
         this.hint.textContent = 'Surface detection unavailable — tap anywhere to place';
       }
 
-      session.addEventListener('select', () => this.onSelect());
+      session.addEventListener('select', (e) => this.onSelect(e));
       session.addEventListener('end', () => this.onSessionEnd());
     },
 
@@ -772,7 +893,12 @@
       this.reticle.setAttribute('visible', false);
     },
 
-    onSelect: function () {
+    onSelect: function (e) {
+      // In WebXR, test if the user tapped an existing 3D sensor first
+      const screenCenterX = window.innerWidth / 2;
+      const screenCenterY = window.innerHeight / 2;
+      if (checkObjectHit(screenCenterX, screenCenterY)) return;
+
       if (this.hitTestSupported) {
         if (!this.reticle.object3D.visible) return;
         const pos = this.reticle.object3D.position.clone();
@@ -820,7 +946,6 @@
           pose.transform.orientation.w
         );
 
-        // Orient reticle flush with the detected plane (wall, floor, or ceiling)
         this.reticle.object3D.quaternion.copy(this.lastPoseQuat).multiply(RETICLE_CORRECTION);
         this.hint.style.opacity = '0';
       } else {

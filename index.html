@@ -65,23 +65,24 @@
     display:none; margin-top: 18px; font-size:12px; color: var(--warn); line-height:1.5;
   }
 
-  /* ---------- Fallback camera feed (no-ARCore path) ---------- */
+  /* ---------- Fallback camera feed ---------- */
   #camera-feed {
     position:fixed; inset:0; width:100%; height:100%;
     object-fit: cover; z-index: 5; display:none;
   }
   a-scene canvas { position:fixed !important; inset:0; z-index: 8 !important; }
 
-  /* ---------- Floating per-object chip (info + remove) ---------- */
+  /* ---------- Floating per-object chip ---------- */
   #floating-chips { position:fixed; inset:0; pointer-events:none; z-index:9; }
   .sensor-chip {
     position:absolute; transform: translate(-50%, -150%);
-    display:flex; gap:5px; pointer-events:none;
+    display:flex; gap:6px; pointer-events:none;
   }
   .chip-btn {
-    width:30px; height:30px; border-radius:50%; border:1px solid var(--copper);
-    background: rgba(10,46,34,0.94); color:var(--silk); font-size:13px; cursor:pointer;
-    pointer-events:all; display:flex; align-items:center; justify-content:center; padding:0;
+    min-width:32px; height:32px; border-radius:16px; border:1px solid var(--copper);
+    background: rgba(10,46,34,0.94); color:var(--silk); font-size:12px; cursor:pointer;
+    pointer-events:all; display:flex; align-items:center; justify-content:center; padding:0 8px;
+    font-family: inherit; font-weight: bold;
   }
   .chip-remove { border-color: var(--warn); color: var(--warn); }
 
@@ -117,44 +118,48 @@
   .category-chip.active { background: var(--copper); border-color: var(--copper); color: var(--pcb-dark); font-weight:bold; }
   .variant-chip.active { border-color: var(--led); color: var(--led); }
 
+  /* ---------- BLENDER TRANSFORM DOCK ---------- */
+  #blender-dock {
+    position: absolute; top: 16px; left: 16px; z-index: 16;
+    background: rgba(10, 46, 34, 0.95); border: 1px solid var(--copper);
+    border-radius: 4px; padding: 12px; font-family: 'Courier New', monospace;
+    color: var(--silk); width: 270px; pointer-events: all; display: none;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .dock-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; color: var(--copper-bright); }
+  .mode-tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+  .mode-tab {
+    flex: 1; padding: 6px 0; background: var(--pcb-green); border: 1px solid var(--trace);
+    color: var(--silk); cursor: pointer; text-align: center; font-size: 11px; font-family: inherit;
+  }
+  .mode-tab.active { background: var(--copper); color: var(--pcb-dark); font-weight: bold; border-color: var(--copper-bright); }
+  .axis-group { display: flex; flex-direction: column; gap: 8px; }
+  .axis-row { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+  .axis-label { width: 14px; font-weight: bold; font-size: 12px; }
+  .axis-x { color: #E0574B; }
+  .axis-y { color: #81C784; }
+  .axis-z { color: #4FC3F7; }
+  .axis-slider { flex: 1; accent-color: var(--copper-bright); height: 4px; }
+  .axis-val { width: 44px; text-align: right; color: #9FBFB1; font-size: 10px; }
+
   /* ---------- INFO PANEL ---------- */
-  #info-panel, #transform-panel {
+  #info-panel {
     position:absolute; left:0; right:0; bottom:0; z-index:15;
     pointer-events:all; transform: translateY(100%); transition: transform .25s ease;
     background: rgba(9,38,29,0.97); border-top: 2px solid var(--copper);
     max-height: 62%; overflow-y:auto; padding: 20px 20px 28px;
   }
-  #info-panel.open, #transform-panel.open { transform: translateY(0); }
-  #info-panel .close-x, #transform-panel .close-x {
+  #info-panel.open { transform: translateY(0); }
+  #info-panel .close-x {
     position:absolute; top:12px; right:16px; font-size:20px; color:#9FBFB1; cursor:pointer;
   }
-  #info-panel h2, #transform-panel h2 { font-family: Georgia, serif; font-size:20px; color:var(--copper-bright); margin-bottom:4px; }
+  #info-panel h2 { font-family: Georgia, serif; font-size:20px; color:var(--copper-bright); margin-bottom:4px; }
   #info-panel .id-tag { font-size:11px; color:#9FBFB1; letter-spacing:1px; margin-bottom:16px; }
   .info-row { margin-bottom:14px; }
   .info-row .label { font-size:10px; letter-spacing:1.5px; color: var(--led); margin-bottom:3px; }
   .info-row .value { font-size:14px; line-height:1.5; color: var(--silk); }
   .info-row ul { margin: 4px 0 0 16px; }
   .info-row li { font-size:13px; margin-bottom:2px; }
-
-  /* ---------- Transform panel (Blender-style XYZ) ---------- */
-  .xyz-group { margin: 16px 0; }
-  .xyz-label { font-size:10px; letter-spacing:1.5px; color: var(--led); margin-bottom:8px; }
-  .xyz-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
-  .xyz-row > span:first-child { width:14px; font-size:12px; color:#9FBFB1; }
-  .xyz-row input[type="range"] { flex:1; accent-color: var(--copper); }
-  .xyz-val { width:44px; text-align:right; font-size:12px; color: var(--silk); font-variant-numeric: tabular-nums; }
-  .uniform-toggle { display:flex; align-items:center; gap:8px; font-size:12px; color:#9FBFB1; margin-top:4px; }
-  #transform-move-btn {
-    width:100%; padding:12px; margin-top:10px; font-size:13px;
-    background: var(--pcb-green); color:var(--silk); border:1px solid var(--copper); border-radius:4px; cursor:pointer;
-  }
-
-  /* ---------- Surface status (wall/floor diagnostic) ---------- */
-  #surface-status {
-    position:absolute; top: 58px; left:50%; transform:translateX(-50%);
-    font-size:11px; color: var(--led); background: rgba(10,46,34,0.7);
-    padding:4px 10px; border-radius:12px; pointer-events:none;
-  }
 </style>
 </head>
 <body>
@@ -181,13 +186,43 @@
     </div>
   </div>
 
-  <!-- ========== FALLBACK CAMERA FEED (no ARCore) ========== -->
+  <!-- ========== FALLBACK CAMERA FEED ========== -->
   <video id="camera-feed" autoplay playsinline muted></video>
 
   <!-- ========== AR OVERLAY UI ========== -->
   <div id="ar-ui">
     <button id="exit-ar">✕</button>
     <div id="hit-hint">Move your phone to find a surface</div>
+
+    <!-- Blender-Style Transform Dock -->
+    <div id="blender-dock">
+      <div class="dock-header">
+        <span id="dock-target-name">TRANSFORM</span>
+        <span id="dock-close" style="cursor:pointer; padding: 2px 6px;">✕</span>
+      </div>
+      <div class="mode-tabs">
+        <button class="mode-tab active" data-mode="translate">MOVE [G]</button>
+        <button class="mode-tab" data-mode="rotate">ROT [R]</button>
+        <button class="mode-tab" data-mode="scale">SCALE [S]</button>
+      </div>
+      <div class="axis-group">
+        <div class="axis-row">
+          <span class="axis-label axis-x">X</span>
+          <input type="range" class="axis-slider" id="slider-x" min="-180" max="180" step="0.01">
+          <span class="axis-val" id="val-x">0</span>
+        </div>
+        <div class="axis-row">
+          <span class="axis-label axis-y">Y</span>
+          <input type="range" class="axis-slider" id="slider-y" min="-180" max="180" step="0.01">
+          <span class="axis-val" id="val-y">0</span>
+        </div>
+        <div class="axis-row">
+          <span class="axis-label axis-z">Z</span>
+          <input type="range" class="axis-slider" id="slider-z" min="-180" max="180" step="0.01">
+          <span class="axis-val" id="val-z">0</span>
+        </div>
+      </div>
+    </div>
 
     <div id="floating-chips"></div>
 
@@ -221,7 +256,6 @@
     <a-entity id="reticle"
       geometry="primitive: ring; radiusInner: 0.045; radiusOuter: 0.06"
       material="color: #4FC3F7; shader: flat; opacity: 0.9"
-      rotation="-90 0 0"
       visible="false">
     </a-entity>
 
@@ -234,13 +268,6 @@
   </a-scene>
 
 <script>
-  /* =========================================================
-     SENSOR LIBRARY
-     Add more entries here — everything else (toolbar, model
-     shape, info panel) reads from this array. `shape` is a
-     placeholder primitive; swap for `gltf-model: #id` later
-     once real GLBs are ready.
-  ========================================================= */
   const SENSOR_LIBRARY = [
     {
       id: "dht11",
@@ -306,14 +333,13 @@
 
   let selectedSensorId = SENSOR_LIBRARY[0].id;
 
-  /* Group the flat library into { categoryName: [sensors...] } */
   const CATEGORIES = SENSOR_LIBRARY.reduce((acc, s) => {
     (acc[s.category] = acc[s.category] || []).push(s);
     return acc;
   }, {});
   let activeCategory = SENSOR_LIBRARY[0].category;
 
-  /* ---------- Start screen wiring ---------- */
+  /* ---------- Start Screen Wiring ---------- */
   const startScreen = document.getElementById('start-screen');
   const scene = document.getElementById('scene');
   const arUi = document.getElementById('ar-ui');
@@ -334,13 +360,10 @@
 
     if (arSupported) {
       try {
-        // useAR = true tells A-Frame to request an immersive-ar session
-        // (rather than immersive-vr) using the webxr component's config above.
         await sceneEl.enterVR(true);
-        return; // hit-test-manager's enter-vr listener takes it from here
+        return;
       } catch (err) {
-        console.warn('Device reported AR support but session failed, falling back to camera+gyro mode:', err);
-        // fall through to the no-ARCore fallback below
+        console.warn('XR session start failed, falling back to camera+gyro mode:', err);
       }
     }
 
@@ -350,7 +373,7 @@
   document.getElementById('exit-ar').addEventListener('click', () => {
     const sceneEl = document.querySelector('a-scene');
     if (sceneEl.is('vr-mode')) {
-      sceneEl.exitVR(); // fires 'exit-vr' -> resetToStartScreen()
+      sceneEl.exitVR();
     } else {
       stopFallbackAR();
     }
@@ -365,15 +388,7 @@
   }
   document.querySelector('a-scene').addEventListener('exit-vr', resetToStartScreen);
 
-  /* =========================================================
-     FALLBACK MODE — camera feed + device-orientation only.
-     Used whenever WebXR immersive-ar isn't available (no ARCore,
-     e.g. this device isn't certified) or the session errors out.
-     No real surface detection: objects are placed a fixed
-     distance in front of wherever the phone is currently facing,
-     and stay rotation-locked (not position-locked) as you look
-     around — same trade-off as most non-ARCore "AR" filters.
-  ========================================================= */
+  /* ---------- Fallback Camera AR ---------- */
   let fallbackTapHandler = null;
 
   async function startFallbackAR() {
@@ -387,25 +402,22 @@
       await video.play();
       video.style.display = 'block';
 
-      // Drive the A-Frame camera's rotation from the phone's gyroscope
-      // instead of WebXR pose tracking (this is A-Frame's normal
-      // "magic window" behavior — no VR/AR session needed for it).
       const cameraEl = document.querySelector('a-scene').camera.el;
       cameraEl.setAttribute('look-controls', 'magicWindowTrackingEnabled: true; touchEnabled: false; pointerLockEnabled: false');
 
-      document.getElementById('hit-hint').textContent = 'No surface detection on this device — tap anywhere to place';
+      document.getElementById('hit-hint').textContent = 'Fallback mode — tap anywhere to place';
 
       const canvas = document.querySelector('a-scene').canvas;
       fallbackTapHandler = () => {
         const camObj = cameraEl.object3D;
         const forward = new THREE.Vector3(0, 0, -0.6).applyQuaternion(camObj.quaternion);
         const pos = camObj.position.clone().add(forward);
-        handlePlacementTap(pos.x, pos.y, pos.z);
+        handlePlacementTap(pos, null);
       };
       canvas.addEventListener('click', fallbackTapHandler);
     } catch (err) {
       console.error('Camera access failed:', err);
-      alert('Could not access the camera: ' + err.message + '\nCheck camera permission was granted to the browser.');
+      alert('Could not access the camera: ' + err.message);
       resetToStartScreen();
     }
   }
@@ -424,31 +436,44 @@
     resetToStartScreen();
   }
 
-  /* ---------- Shared sensor placement (used by both AR paths) ---------- */
-  const entityChipMap = new Map(); // a-entity -> floating chip DOM element
+  /* ---------- Shared Sensor Placement & Surface Normals ---------- */
+  const entityChipMap = new Map();
   let moveModeEntity = null;
 
-  function handlePlacementTap(x, y, z, quaternion) {
+  function handlePlacementTap(posVector, quat) {
     if (moveModeEntity) {
-      moveModeEntity.setAttribute('position', `${x} ${y + 0.03} ${z}`);
-      if (quaternion) moveModeEntity.object3D.quaternion.copy(quaternion);
+      if (quat) {
+        const normal = new THREE.Vector3(0, 1, 0).applyQuaternion(quat);
+        moveModeEntity.object3D.position.copy(posVector).addScaledVector(normal, 0.03);
+        moveModeEntity.object3D.quaternion.copy(quat);
+      } else {
+        moveModeEntity.object3D.position.copy(posVector);
+      }
       moveModeEntity = null;
       document.getElementById('hit-hint').style.opacity = '0';
       return;
     }
-    placeSensorAt(x, y, z, quaternion);
+    placeSensorAt(posVector, quat);
   }
 
-  function placeSensorAt(x, y, z, quaternion) {
+  function placeSensorAt(posVector, quat) {
     const sensor = SENSOR_LIBRARY.find(s => s.id === selectedSensorId);
     const entity = document.createElement('a-entity');
     entity.setAttribute('geometry', `primitive: ${sensor.shape.primitive}; ${sensor.shape.args}`);
     entity.setAttribute('material', `color: ${sensor.shape.color}; roughness: 0.5; metalness: 0.2`);
-    entity.setAttribute('position', `${x} ${y + 0.03} ${z}`);
     entity.setAttribute('class', 'placed-sensor');
     entity.dataset.sensorId = sensor.id;
     document.getElementById('placed-sensors').appendChild(entity);
-    if (quaternion) entity.object3D.quaternion.copy(quaternion);
+
+    if (quat) {
+      // Offset perpendicular to detected surface (floor, wall, ceiling)
+      const normal = new THREE.Vector3(0, 1, 0).applyQuaternion(quat);
+      entity.object3D.position.copy(posVector).addScaledVector(normal, 0.03);
+      entity.object3D.quaternion.copy(quat);
+    } else {
+      entity.object3D.position.copy(posVector).add(new THREE.Vector3(0, 0.03, 0));
+    }
+
     createChipFor(entity, sensor);
   }
 
@@ -457,20 +482,21 @@
     chip.className = 'sensor-chip';
     chip.innerHTML =
       '<button class="chip-btn" data-action="info" title="Info">ℹ</button>' +
-      '<button class="chip-btn" data-action="move" title="Move">✥</button>' +
-      '<button class="chip-btn" data-action="resize" title="Resize">⤢</button>' +
-      '<button class="chip-btn" data-action="rotate" title="Rotate">⟳</button>' +
+      '<button class="chip-btn" data-action="transform" title="Blender Transform">XYZ</button>' +
+      '<button class="chip-btn" data-action="reposition" title="Reposition">✥</button>' +
       '<button class="chip-btn chip-remove" data-action="delete" title="Delete">🗑</button>';
+
     chip.querySelector('[data-action="info"]').addEventListener('click', () => openInfoPanel(sensor, entity));
-    chip.querySelector('[data-action="move"]').addEventListener('click', () => armMoveMode(entity));
-    chip.querySelector('[data-action="resize"]').addEventListener('click', () => cycleResize(entity));
-    chip.querySelector('[data-action="rotate"]').addEventListener('click', () => cycleRotate(entity));
+    chip.querySelector('[data-action="transform"]').addEventListener('click', () => openBlenderDock(entity, sensor.name));
+    chip.querySelector('[data-action="reposition"]').addEventListener('click', () => armMoveMode(entity));
     chip.querySelector('[data-action="delete"]').addEventListener('click', () => removeSensor(entity));
+
     document.getElementById('floating-chips').appendChild(chip);
     entityChipMap.set(entity, chip);
   }
 
   function removeSensor(entity) {
+    if (activeEntity === entity) closeBlenderDock();
     const chip = entityChipMap.get(entity);
     if (chip) chip.remove();
     entityChipMap.delete(entity);
@@ -483,6 +509,7 @@
   }
 
   function clearAllSensors() {
+    closeBlenderDock();
     entityChipMap.forEach(chip => chip.remove());
     entityChipMap.clear();
     document.getElementById('placed-sensors').innerHTML = '';
@@ -490,8 +517,16 @@
     moveModeEntity = null;
   }
 
-  /* Keeps each floating chip positioned over its 3D object every frame,
-     by projecting the object's world position to screen space. */
+  function armMoveMode(entity) {
+    moveModeEntity = entity;
+    infoPanel.classList.remove('open');
+    closeBlenderDock();
+    const hint = document.getElementById('hit-hint');
+    hint.textContent = 'Tap on a surface to reposition';
+    hint.style.opacity = '1';
+  }
+
+  /* Screen Projection for Object Chips */
   AFRAME.registerComponent('chip-updater', {
     tick: function () {
       const camera = this.el.camera;
@@ -510,7 +545,121 @@
   });
   document.querySelector('a-scene').setAttribute('chip-updater', '');
 
-  /* ---------- Category / variant picker ---------- */
+  /* ---------- Blender-Style Transform Dock Logic ---------- */
+  let activeEntity = null;
+  let currentMode = 'translate';
+  const dock = document.getElementById('blender-dock');
+  const sliderX = document.getElementById('slider-x');
+  const sliderY = document.getElementById('slider-y');
+  const sliderZ = document.getElementById('slider-z');
+  const valX = document.getElementById('val-x');
+  const valY = document.getElementById('val-y');
+  const valZ = document.getElementById('val-z');
+
+  function openBlenderDock(entity, label) {
+    activeEntity = entity;
+    document.getElementById('dock-target-name').textContent = label;
+    dock.style.display = 'block';
+    infoPanel.classList.remove('open');
+    updateSlidersForMode();
+  }
+
+  function closeBlenderDock() {
+    dock.style.display = 'none';
+    activeEntity = null;
+  }
+  document.getElementById('dock-close').addEventListener('click', closeBlenderDock);
+
+  document.querySelectorAll('.mode-tab').forEach(tab => {
+    tab.addEventListener('click', (e) => {
+      document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+      e.target.classList.add('active');
+      currentMode = e.target.dataset.mode;
+      updateSlidersForMode();
+    });
+  });
+
+  function updateSlidersForMode() {
+    if (!activeEntity) return;
+    const obj = activeEntity.object3D;
+
+    if (currentMode === 'translate') {
+      // Relative translation sliders along object local axis
+      sliderX.min = -0.3; sliderX.max = 0.3; sliderX.step = 0.002; sliderX.value = 0;
+      sliderY.min = -0.3; sliderY.max = 0.3; sliderY.step = 0.002; sliderY.value = 0;
+      sliderZ.min = -0.3; sliderZ.max = 0.3; sliderZ.step = 0.002; sliderZ.value = 0;
+      valX.textContent = '0m'; valY.textContent = '0m'; valZ.textContent = '0m';
+    } else if (currentMode === 'rotate') {
+      // Absolute Euler rotation degrees
+      sliderX.min = -180; sliderX.max = 180; sliderX.step = 1;
+      sliderY.min = -180; sliderY.max = 180; sliderY.step = 1;
+      sliderZ.min = -180; sliderZ.max = 180; sliderZ.step = 1;
+      const degX = Math.round(THREE.MathUtils.radToDeg(obj.rotation.x));
+      const degY = Math.round(THREE.MathUtils.radToDeg(obj.rotation.y));
+      const degZ = Math.round(THREE.MathUtils.radToDeg(obj.rotation.z));
+      sliderX.value = degX; sliderY.value = degY; sliderZ.value = degZ;
+      valX.textContent = degX + '°'; valY.textContent = degY + '°'; valZ.textContent = degZ + '°';
+    } else if (currentMode === 'scale') {
+      // Scale multiplier per-axis
+      sliderX.min = 0.1; sliderX.max = 3.5; sliderX.step = 0.02; sliderX.value = obj.scale.x;
+      sliderY.min = 0.1; sliderY.max = 3.5; sliderY.step = 0.02; sliderY.value = obj.scale.y;
+      sliderZ.min = 0.1; sliderZ.max = 3.5; sliderZ.step = 0.02; sliderZ.value = obj.scale.z;
+      valX.textContent = obj.scale.x.toFixed(2) + 'x';
+      valY.textContent = obj.scale.y.toFixed(2) + 'x';
+      valZ.textContent = obj.scale.z.toFixed(2) + 'x';
+    }
+  }
+
+  let prevTransX = 0, prevTransY = 0, prevTransZ = 0;
+
+  function handleTransformInput(e) {
+    if (!activeEntity) return;
+    const obj = activeEntity.object3D;
+    const vx = parseFloat(sliderX.value);
+    const vy = parseFloat(sliderY.value);
+    const vz = parseFloat(sliderZ.value);
+
+    if (currentMode === 'translate') {
+      const dx = vx - prevTransX;
+      const dy = vy - prevTransY;
+      const dz = vz - prevTransZ;
+      obj.translateX(dx);
+      obj.translateY(dy);
+      obj.translateZ(dz);
+      prevTransX = vx; prevTransY = vy; prevTransZ = vz;
+      valX.textContent = vx.toFixed(2) + 'm';
+      valY.textContent = vy.toFixed(2) + 'm';
+      valZ.textContent = vz.toFixed(2) + 'm';
+    } else if (currentMode === 'rotate') {
+      obj.rotation.set(
+        THREE.MathUtils.degToRad(vx),
+        THREE.MathUtils.degToRad(vy),
+        THREE.MathUtils.degToRad(vz)
+      );
+      valX.textContent = Math.round(vx) + '°';
+      valY.textContent = Math.round(vy) + '°';
+      valZ.textContent = Math.round(vz) + '°';
+    } else if (currentMode === 'scale') {
+      obj.scale.set(vx, vy, vz);
+      valX.textContent = vx.toFixed(2) + 'x';
+      valY.textContent = vy.toFixed(2) + 'x';
+      valZ.textContent = vz.toFixed(2) + 'x';
+    }
+  }
+
+  [sliderX, sliderY, sliderZ].forEach(slider => {
+    slider.addEventListener('input', handleTransformInput);
+    slider.addEventListener('change', () => {
+      if (currentMode === 'translate') {
+        // Reset relative translation scrub on release
+        sliderX.value = 0; sliderY.value = 0; sliderZ.value = 0;
+        prevTransX = 0; prevTransY = 0; prevTransZ = 0;
+        valX.textContent = '0m'; valY.textContent = '0m'; valZ.textContent = '0m';
+      }
+    });
+  });
+
+  /* ---------- Category / Variant Toolbars ---------- */
   const categoryToolbar = document.getElementById('category-toolbar');
   const variantToolbar = document.getElementById('variant-toolbar');
 
@@ -523,7 +672,6 @@
       chip.dataset.category = catName;
       chip.addEventListener('click', () => {
         activeCategory = catName;
-        // default to the first variant in the newly selected category
         selectedSensorId = CATEGORIES[catName][0].id;
         renderCategories();
         renderVariants();
@@ -550,7 +698,7 @@
   renderCategories();
   renderVariants();
 
-  /* ---------- Info panel ---------- */
+  /* ---------- Info Panel ---------- */
   const infoPanel = document.getElementById('info-panel');
   let currentInfoEntity = null;
 
@@ -560,6 +708,7 @@
 
   function openInfoPanel(sensor, entity) {
     currentInfoEntity = entity || null;
+    closeBlenderDock();
     document.getElementById('info-name').textContent = sensor.name;
     document.getElementById('info-id').textContent = sensor.category.toUpperCase();
     document.getElementById('info-function').textContent = sensor.function;
@@ -575,57 +724,22 @@
     infoPanel.classList.add('open');
   }
 
-  /* ---------- Manipulate: scale / rotate / move (triggered from the object's own chip) ---------- */
-  const SCALE_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2];
-  const entityScaleIndex = new WeakMap();
-
-  function cycleResize(entity) {
-    let idx = entityScaleIndex.get(entity);
-    if (idx === undefined) idx = SCALE_STEPS.indexOf(1);
-    idx = (idx + 1) % SCALE_STEPS.length;
-    entityScaleIndex.set(entity, idx);
-    const s = SCALE_STEPS[idx];
-    entity.object3D.scale.set(s, s, s);
-  }
-  function cycleRotate(entity) {
-    entity.object3D.rotation.y += THREE.MathUtils.degToRad(30);
-  }
-  function armMoveMode(entity) {
-    moveModeEntity = entity;
-    infoPanel.classList.remove('open');
-    const hint = document.getElementById('hit-hint');
-    hint.textContent = 'Tap where you want to move it';
-    hint.style.opacity = '1';
-  }
-
-  /* WebXR quirk: a tap on a dom-overlay button (close, exit, toolbar
-     chips) can ALSO fire the underlying XR session's 'select' event
-     unless explicitly suppressed — which is what was spawning an
-     extra cube every time the info panel's ✕ was tapped. */
   document.getElementById('ar-ui').addEventListener('beforexrselect', (e) => {
     e.preventDefault();
   });
 
-  /* =========================================================
-     HIT-TEST + PLACEMENT COMPONENT
-     Uses renderer.xr.getFrame() (three.js r160+, bundled with
-     A-Frame 1.5) so we don't need a third-party AR component.
-     Applies the hit result's full orientation (not just position)
-     so placement aligns correctly to walls as well as floors —
-     the WebXR hit-test pose's Y-axis points along the detected
-     surface's normal, whether that surface is horizontal or vertical.
-  ========================================================= */
+  /* ---------- WebXR Hit-Test Manager (Walls + Floors) ---------- */
   const RETICLE_CORRECTION = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
 
   AFRAME.registerComponent('hit-test-manager', {
     init: function () {
       this.reticle = document.getElementById('reticle');
-      this.placedRoot = document.getElementById('placed-sensors');
       this.cameraEl = document.querySelector('a-scene').camera.el;
       this.hitTestSource = null;
       this.hitTestSupported = false;
       this.localSpace = null;
       this.hint = document.getElementById('hit-hint');
+      this.lastPoseQuat = new THREE.Quaternion();
 
       this.el.addEventListener('enter-vr', () => this.onSessionStart());
       this.el.addEventListener('exit-vr', () => this.onSessionEnd());
@@ -644,9 +758,9 @@
         this.hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
         this.hitTestSupported = true;
       } catch (err) {
-        console.warn('hit-test unavailable on this device, falling back to tap-to-place:', err);
+        console.warn('Hit-test unsupported, falling back to camera space:', err);
         this.hitTestSource = null;
-        this.hint.textContent = 'Surface detection unavailable here — tap anywhere to place';
+        this.hint.textContent = 'Surface detection unavailable — tap anywhere to place';
       }
 
       session.addEventListener('select', () => this.onSelect());
@@ -661,15 +775,14 @@
     onSelect: function () {
       if (this.hitTestSupported) {
         if (!this.reticle.object3D.visible) return;
-        const pos = this.reticle.object3D.position;
-        handlePlacementTap(pos.x, pos.y, pos.z, this.reticle.object3D.quaternion.clone());
+        const pos = this.reticle.object3D.position.clone();
+        const quat = this.lastPoseQuat.clone();
+        handlePlacementTap(pos, quat);
       } else {
-        // Fallback within an active XR session: no hit-test feature,
-        // but AR mode itself is running — place ~0.6m in front of the camera.
         const camObj = this.cameraEl.object3D;
         const forward = new THREE.Vector3(0, 0, -0.6).applyQuaternion(camObj.quaternion);
         const pos = camObj.position.clone().add(forward);
-        handlePlacementTap(pos.x, pos.y, pos.z);
+        handlePlacementTap(pos, null);
       }
     },
 
@@ -683,7 +796,6 @@
       try {
         hitResults = frame.getHitTestResults(this.hitTestSource);
       } catch (err) {
-        // Transient tracking hiccup — skip this frame instead of throwing.
         return;
       }
 
@@ -691,8 +803,6 @@
         const hit = hitResults[0];
         const pose = hit.getPose(this.localSpace);
         if (!pose) {
-          // Tracking briefly lost confidence (common while moving) — just
-          // hide the reticle for this frame rather than crashing on a null pose.
           this.reticle.object3D.visible = false;
           return;
         }
@@ -702,16 +812,16 @@
           pose.transform.position.y,
           pose.transform.position.z
         );
-        const poseQuat = new THREE.Quaternion(
+
+        this.lastPoseQuat.set(
           pose.transform.orientation.x,
           pose.transform.orientation.y,
           pose.transform.orientation.z,
           pose.transform.orientation.w
         );
-        // The ring primitive's default face normal is local +Z; rotate it
-        // -90° about X first so that "flat" corresponds to the pose's own
-        // +Y (surface normal), then apply the pose's real-world orientation.
-        this.reticle.object3D.quaternion.copy(poseQuat).multiply(RETICLE_CORRECTION);
+
+        // Orient reticle flush with the detected plane (wall, floor, or ceiling)
+        this.reticle.object3D.quaternion.copy(this.lastPoseQuat).multiply(RETICLE_CORRECTION);
         this.hint.style.opacity = '0';
       } else {
         this.reticle.object3D.visible = false;
@@ -721,7 +831,6 @@
   });
 
   document.querySelector('a-scene').setAttribute('hit-test-manager', '');
-
 </script>
 </body>
 </html>

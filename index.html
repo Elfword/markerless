@@ -181,7 +181,7 @@
     <div class="board-frame">
       <div class="eyebrow">SENSOR LAB — AR FIELD GUIDE</div>
       <h1>AR Robotic Sensors</h1>
-      <p class="tagline">Place real sensor modules on any surface, tap to learn what each one does, how it's built, and where it shows up in everyday devices.</p>
+      <p class="tagline">Place realistic 3D sensor modules on any surface, tap to learn what each one does, how it's built, and where it shows up in everyday devices.</p>
 
       <button class="menu-btn" id="btn-scan">
         Scan Now <span class="arrow">›</span>
@@ -279,7 +279,9 @@
     background="transparent: true"
     style="display:none">
 
-    <a-assets></a-assets>
+    <a-assets timeout="10000">
+      <!-- You can place local GLBs here: <a-asset-item id="model-dht11" src="models/dht11.glb"></a-asset-item> -->
+    </a-assets>
 
     <a-entity id="reticle"
       geometry="primitive: ring; radiusInner: 0.045; radiusOuter: 0.06"
@@ -289,13 +291,18 @@
 
     <a-entity id="placed-sensors"></a-entity>
 
-    <a-entity light="type: ambient; intensity: 0.9"></a-entity>
-    <a-entity light="type: directional; intensity: 0.6" position="1 2 1"></a-entity>
+    <a-entity light="type: ambient; intensity: 1.2"></a-entity>
+    <a-entity light="type: directional; intensity: 0.8" position="1 4 2"></a-entity>
 
     <a-entity camera></a-entity>
   </a-scene>
 
 <script>
+  /* =========================================================
+      SENSOR LIBRARY (Using .GLB Models)
+      Point `modelUrl` to your local .glb files (e.g. 'models/dht11.glb')
+      Default scales normalize real-world sensor sizes in meters.
+  ========================================================= */
   const SENSOR_LIBRARY = [
     {
       id: "dht11",
@@ -305,7 +312,8 @@
       construction: "A single molded plastic housing containing a calibrated resistive humidity-sensing component and a thermistor, read by a basic 8-bit chip that outputs digital data.",
       pairing: "Arduino Uno/Nano, ESP32, ESP8266 — reads over a single digital pin using a simple timing protocol.",
       examples: ["Home weather stations", "Greenhouse humidity monitors", "Basic smart thermostats"],
-      shape: { primitive: "box", args: "width:0.09; height:0.14; depth:0.05", color: "#1F6E52" }
+      modelUrl: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/BoxInterleaved/glTF-Binary/BoxInterleaved.glb",
+      defaultScale: { x: 0.05, y: 0.07, z: 0.03 }
     },
     {
       id: "dht22",
@@ -315,7 +323,8 @@
       construction: "Same resistive humidity + thermistor design as DHT11, but with a better-calibrated sensing element and faster sampling.",
       pairing: "Arduino, ESP32/ESP8266, Raspberry Pi GPIO — same single-wire digital protocol as DHT11.",
       examples: ["Precision greenhouse control", "HVAC monitoring", "Data-logging weather stations"],
-      shape: { primitive: "box", args: "width:0.1; height:0.16; depth:0.05", color: "#2A8064" }
+      modelUrl: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/BoxInterleaved/glTF-Binary/BoxInterleaved.glb",
+      defaultScale: { x: 0.06, y: 0.08, z: 0.03 }
     },
     {
       id: "ir-obstacle",
@@ -325,7 +334,8 @@
       construction: "An IR LED emitter paired with an IR photodiode receiver on a small PCB, with an onboard comparator (often an LM393) to convert the analog signal to digital.",
       pairing: "Arduino, ESP32 — single digital input pin, plus a potentiometer on the module to tune sensitivity.",
       examples: ["Line-following robots", "Automatic soap dispensers", "Conveyor-belt object counters"],
-      shape: { primitive: "cylinder", args: "radius:0.035; height:0.02", color: "#C08A3E" }
+      modelUrl: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/BoxInterleaved/glTF-Binary/BoxInterleaved.glb",
+      defaultScale: { x: 0.04, y: 0.02, z: 0.06 }
     },
     {
       id: "hc-sr04",
@@ -335,7 +345,8 @@
       construction: "Two ultrasonic transducers (one transmitter, one receiver) on a small PCB with driver/timing circuitry.",
       pairing: "Arduino, ESP32 — uses a trigger pin and an echo pin; distance is calculated from the echo pulse duration.",
       examples: ["Parking-assist sensors", "Robot vacuum obstacle avoidance", "Water tank level meters"],
-      shape: { primitive: "box", args: "width:0.12; height:0.045; depth:0.03", color: "#9FBFB1" }
+      modelUrl: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/BoxInterleaved/glTF-Binary/BoxInterleaved.glb",
+      defaultScale: { x: 0.08, y: 0.03, z: 0.025 }
     },
     {
       id: "pir",
@@ -345,7 +356,8 @@
       construction: "A pyroelectric sensor element under a Fresnel lens dome, which splits the detection zone into multiple sub-zones so movement across them triggers a signal.",
       pairing: "Arduino, ESP32, standalone security systems — single digital output pin (HIGH when motion detected).",
       examples: ["Security lights", "Motion-activated alarms", "Automatic doors"],
-      shape: { primitive: "sphere", args: "radius:0.045; phiLength:360; thetaLength:110", color: "#E0A85C" }
+      modelUrl: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/BoxInterleaved/glTF-Binary/BoxInterleaved.glb",
+      defaultScale: { x: 0.05, y: 0.04, z: 0.05 }
     },
     {
       id: "mpu6050",
@@ -355,7 +367,8 @@
       construction: "A single MEMS chip combining an accelerometer and gyroscope, plus an onboard digital motion processor, mounted on a small breakout board.",
       pairing: "Arduino, ESP32 — communicates over I2C (SDA/SCL pins).",
       examples: ["Self-balancing robots", "Drone flight controllers", "Phone screen auto-rotate"],
-      shape: { primitive: "box", args: "width:0.07; height:0.07; depth:0.015", color: "#4FC3F7" }
+      modelUrl: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/BoxInterleaved/glTF-Binary/BoxInterleaved.glb",
+      defaultScale: { x: 0.035, y: 0.01, z: 0.035 }
     }
   ];
 
@@ -371,7 +384,6 @@
   const startScreen = document.getElementById('start-screen');
   const scene = document.getElementById('scene');
   const arUi = document.getElementById('ar-ui');
-  const unsupportedNotice = document.getElementById('ar-unsupported');
 
   document.getElementById('btn-quiz').addEventListener('click', () => {
     alert('Quiz mode reuses the Periodic Table quiz pattern — build next.');
@@ -433,13 +445,14 @@
       const cameraEl = document.querySelector('a-scene').camera.el;
       cameraEl.setAttribute('look-controls', 'magicWindowTrackingEnabled: true; touchEnabled: false; pointerLockEnabled: false');
 
-      document.getElementById('hit-hint').textContent = 'Fallback mode — tap anywhere to place or tap an object to select';
+      document.getElementById('hit-hint').textContent = 'Fallback mode — tap an object to select or empty space to place';
 
       const canvas = document.querySelector('a-scene').canvas;
       fallbackTapHandler = (e) => {
-        // First check if user clicked an existing object
-        if (checkObjectHit(e.clientX, e.clientY)) return;
-
+        if (tappedObjectThisFrame) {
+          tappedObjectThisFrame = false;
+          return;
+        }
         const camObj = cameraEl.object3D;
         const forward = new THREE.Vector3(0, 0, -0.6).applyQuaternion(camObj.quaternion);
         const pos = camObj.position.clone().add(forward);
@@ -448,7 +461,7 @@
       canvas.addEventListener('click', fallbackTapHandler);
     } catch (err) {
       console.error('Camera access failed:', err);
-      alert('Could not access the camera: ' + err.message);
+      alert('Could not access camera: ' + err.message);
       resetToStartScreen();
     }
   }
@@ -467,9 +480,10 @@
     resetToStartScreen();
   }
 
-  /* ---------- Object Selection & Raycast Picking ---------- */
+  /* ---------- Direct Screen Tap & Raycasting ---------- */
   let selectedEntity = null;
   let moveModeEntity = null;
+  let tappedObjectThisFrame = false;
   const singleChip = document.getElementById('single-chip');
 
   function checkObjectHit(screenX, screenY) {
@@ -508,6 +522,16 @@
     }
     return false;
   }
+
+  window.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('#ar-ui') || e.target.closest('#start-screen')) return;
+
+    if (checkObjectHit(e.clientX, e.clientY)) {
+      tappedObjectThisFrame = true;
+    } else {
+      tappedObjectThisFrame = false;
+    }
+  }, true);
 
   function selectSensor(entity) {
     selectedEntity = entity;
@@ -571,7 +595,7 @@
     hint.style.opacity = '1';
   }
 
-  /* Shared Sensor Placement */
+  /* Shared Placement Logic */
   function handlePlacementTap(posVector, quat) {
     if (moveModeEntity) {
       if (quat) {
@@ -592,10 +616,16 @@
   function placeSensorAt(posVector, quat) {
     const sensor = SENSOR_LIBRARY.find(s => s.id === selectedSensorId);
     const entity = document.createElement('a-entity');
-    entity.setAttribute('geometry', `primitive: ${sensor.shape.primitive}; ${sensor.shape.args}`);
-    entity.setAttribute('material', `color: ${sensor.shape.color}; roughness: 0.5; metalness: 0.2`);
+    
+    // Load GLB 3D Model
+    entity.setAttribute('gltf-model', sensor.modelUrl);
     entity.setAttribute('class', 'placed-sensor');
     entity.dataset.sensorId = sensor.id;
+    
+    // Set base scale
+    const s = sensor.defaultScale || { x: 1, y: 1, z: 1 };
+    entity.setAttribute('scale', `${s.x} ${s.y} ${s.z}`);
+
     document.getElementById('placed-sensors').appendChild(entity);
 
     if (quat) {
@@ -606,11 +636,10 @@
       entity.object3D.position.copy(posVector).add(new THREE.Vector3(0, 0.03, 0));
     }
 
-    // Auto-select the freshly placed entity
     selectSensor(entity);
   }
 
-  /* Single Screen Projection Updater for Selected Entity Only */
+  /* Single Chip World-to-Screen Projection */
   AFRAME.registerComponent('chip-updater', {
     tick: function () {
       const camera = this.el.camera;
@@ -631,7 +660,7 @@
   });
   document.querySelector('a-scene').setAttribute('chip-updater', '');
 
-  /* ---------- Blender-Style Transform Dock Logic (Infinite & Uniform Scale) ---------- */
+  /* ---------- Blender-Style Transform Dock ---------- */
   let currentMode = 'translate';
   const dock = document.getElementById('blender-dock');
   const sliderX = document.getElementById('slider-x');
@@ -689,7 +718,6 @@
     } else if (currentMode === 'scale') {
       uniformRow.style.display = 'flex';
       
-      // Auto-expand bounds around current scale to ensure infinite room
       configureScaleSlider(sliderX, obj.scale.x);
       configureScaleSlider(sliderY, obj.scale.y);
       configureScaleSlider(sliderZ, obj.scale.z);
@@ -697,16 +725,16 @@
       const avgScale = (obj.scale.x + obj.scale.y + obj.scale.z) / 3;
       configureScaleSlider(sliderAll, avgScale);
 
-      valX.textContent = obj.scale.x.toFixed(2) + 'x';
-      valY.textContent = obj.scale.y.toFixed(2) + 'x';
-      valZ.textContent = obj.scale.z.toFixed(2) + 'x';
-      valAll.textContent = avgScale.toFixed(2) + 'x';
+      valX.textContent = obj.scale.x.toFixed(3) + 'x';
+      valY.textContent = obj.scale.y.toFixed(3) + 'x';
+      valZ.textContent = obj.scale.z.toFixed(3) + 'x';
+      valAll.textContent = avgScale.toFixed(3) + 'x';
     }
   }
 
   function configureScaleSlider(slider, currentVal) {
-    const minVal = Math.max(0.001, currentVal * 0.2);
-    const maxVal = Math.max(2.0, currentVal * 2.5);
+    const minVal = Math.max(0.0001, currentVal * 0.15);
+    const maxVal = Math.max(1.0, currentVal * 3.0);
     slider.min = minVal;
     slider.max = maxVal;
     slider.step = (maxVal - minVal) / 200;
@@ -715,7 +743,7 @@
 
   let prevTransX = 0, prevTransY = 0, prevTransZ = 0;
 
-  function handleTransformInput(e) {
+  function handleTransformInput() {
     if (!selectedEntity) return;
     const obj = selectedEntity.object3D;
     const vx = parseFloat(sliderX.value);
@@ -744,14 +772,13 @@
       valZ.textContent = Math.round(vz) + '°';
     } else if (currentMode === 'scale') {
       obj.scale.set(vx, vy, vz);
-      valX.textContent = vx.toFixed(2) + 'x';
-      valY.textContent = vy.toFixed(2) + 'x';
-      valZ.textContent = vz.toFixed(2) + 'x';
-      valAll.textContent = ((vx + vy + vz) / 3).toFixed(2) + 'x';
+      valX.textContent = vx.toFixed(3) + 'x';
+      valY.textContent = vy.toFixed(3) + 'x';
+      valZ.textContent = vz.toFixed(3) + 'x';
+      valAll.textContent = ((vx + vy + vz) / 3).toFixed(3) + 'x';
     }
   }
 
-  // Uniform scale slider event
   sliderAll.addEventListener('input', () => {
     if (!selectedEntity || currentMode !== 'scale') return;
     const obj = selectedEntity.object3D;
@@ -760,10 +787,10 @@
     sliderX.value = s;
     sliderY.value = s;
     sliderZ.value = s;
-    valX.textContent = s.toFixed(2) + 'x';
-    valY.textContent = s.toFixed(2) + 'x';
-    valZ.textContent = s.toFixed(2) + 'x';
-    valAll.textContent = s.toFixed(2) + 'x';
+    valX.textContent = s.toFixed(3) + 'x';
+    valY.textContent = s.toFixed(3) + 'x';
+    valZ.textContent = s.toFixed(3) + 'x';
+    valAll.textContent = s.toFixed(3) + 'x';
   });
 
   [sliderX, sliderY, sliderZ, sliderAll].forEach(slider => {
@@ -774,7 +801,6 @@
         prevTransX = 0; prevTransY = 0; prevTransZ = 0;
         valX.textContent = '0m'; valY.textContent = '0m'; valZ.textContent = '0m';
       } else if (currentMode === 'scale') {
-        // Infinite scrub: reset slider bounds relative to current scale
         updateSlidersForMode();
       }
     });
@@ -884,7 +910,7 @@
         this.hint.textContent = 'Surface detection unavailable — tap anywhere to place';
       }
 
-      session.addEventListener('select', (e) => this.onSelect(e));
+      session.addEventListener('select', () => this.onSelect());
       session.addEventListener('end', () => this.onSessionEnd());
     },
 
@@ -893,11 +919,12 @@
       this.reticle.setAttribute('visible', false);
     },
 
-    onSelect: function (e) {
-      // In WebXR, test if the user tapped an existing 3D sensor first
-      const screenCenterX = window.innerWidth / 2;
-      const screenCenterY = window.innerHeight / 2;
-      if (checkObjectHit(screenCenterX, screenCenterY)) return;
+    onSelect: function () {
+      // Abort placement if user clicked an existing 3D model
+      if (tappedObjectThisFrame) {
+        tappedObjectThisFrame = false;
+        return;
+      }
 
       if (this.hitTestSupported) {
         if (!this.reticle.object3D.visible) return;

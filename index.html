@@ -371,6 +371,7 @@
   const startScreen = document.getElementById('start-screen');
   const scene = document.getElementById('scene');
   const arUi = document.getElementById('ar-ui');
+  const unsupportedNotice = document.getElementById('ar-unsupported');
 
   document.getElementById('btn-quiz').addEventListener('click', () => {
     alert('Quiz mode reuses the Periodic Table quiz pattern — build next.');
@@ -432,10 +433,11 @@
       const cameraEl = document.querySelector('a-scene').camera.el;
       cameraEl.setAttribute('look-controls', 'magicWindowTrackingEnabled: true; touchEnabled: false; pointerLockEnabled: false');
 
-      document.getElementById('hit-hint').textContent = 'Fallback mode — tap an object to select or empty space to place';
+      document.getElementById('hit-hint').textContent = 'Fallback mode — tap anywhere to place or tap an object to select';
 
       const canvas = document.querySelector('a-scene').canvas;
       fallbackTapHandler = (e) => {
+        // First check if user clicked an existing object
         if (checkObjectHit(e.clientX, e.clientY)) return;
 
         const camObj = cameraEl.object3D;
@@ -465,10 +467,9 @@
     resetToStartScreen();
   }
 
-  /* ---------- Direct Tap Detection & Object Picking ---------- */
+  /* ---------- Object Selection & Raycast Picking ---------- */
   let selectedEntity = null;
   let moveModeEntity = null;
-  let tappedObjectThisFrame = false;
   const singleChip = document.getElementById('single-chip');
 
   function checkObjectHit(screenX, screenY) {
@@ -476,7 +477,6 @@
     const camera = sceneEl.camera;
     if (!camera) return false;
 
-    // Convert exact screen tap coordinates to Normalized Device Coordinates (-1 to +1)
     const mouse = new THREE.Vector2(
       (screenX / window.innerWidth) * 2 - 1,
       -(screenY / window.innerHeight) * 2 + 1
@@ -508,18 +508,6 @@
     }
     return false;
   }
-
-  // Intercept screen pointer down anywhere during AR sessions
-  window.addEventListener('pointerdown', (e) => {
-    // Ignore taps on UI controls, dock, or dialogs
-    if (e.target.closest('#ar-ui') || e.target.closest('#start-screen')) return;
-
-    if (checkObjectHit(e.clientX, e.clientY)) {
-      tappedObjectThisFrame = true;
-    } else {
-      tappedObjectThisFrame = false;
-    }
-  }, true);
 
   function selectSensor(entity) {
     selectedEntity = entity;
@@ -583,7 +571,7 @@
     hint.style.opacity = '1';
   }
 
-  /* Shared Placement Logic */
+  /* Shared Sensor Placement */
   function handlePlacementTap(posVector, quat) {
     if (moveModeEntity) {
       if (quat) {
@@ -618,10 +606,11 @@
       entity.object3D.position.copy(posVector).add(new THREE.Vector3(0, 0.03, 0));
     }
 
+    // Auto-select the freshly placed entity
     selectSensor(entity);
   }
 
-  /* Single Chip World-to-Screen Projection */
+  /* Single Screen Projection Updater for Selected Entity Only */
   AFRAME.registerComponent('chip-updater', {
     tick: function () {
       const camera = this.el.camera;
@@ -642,7 +631,7 @@
   });
   document.querySelector('a-scene').setAttribute('chip-updater', '');
 
-  /* ---------- Blender-Style Transform Dock (Infinite & Uniform Scale) ---------- */
+  /* ---------- Blender-Style Transform Dock Logic (Infinite & Uniform Scale) ---------- */
   let currentMode = 'translate';
   const dock = document.getElementById('blender-dock');
   const sliderX = document.getElementById('slider-x');
@@ -700,6 +689,7 @@
     } else if (currentMode === 'scale') {
       uniformRow.style.display = 'flex';
       
+      // Auto-expand bounds around current scale to ensure infinite room
       configureScaleSlider(sliderX, obj.scale.x);
       configureScaleSlider(sliderY, obj.scale.y);
       configureScaleSlider(sliderZ, obj.scale.z);
@@ -725,7 +715,7 @@
 
   let prevTransX = 0, prevTransY = 0, prevTransZ = 0;
 
-  function handleTransformInput() {
+  function handleTransformInput(e) {
     if (!selectedEntity) return;
     const obj = selectedEntity.object3D;
     const vx = parseFloat(sliderX.value);
@@ -761,6 +751,7 @@
     }
   }
 
+  // Uniform scale slider event
   sliderAll.addEventListener('input', () => {
     if (!selectedEntity || currentMode !== 'scale') return;
     const obj = selectedEntity.object3D;
@@ -783,6 +774,7 @@
         prevTransX = 0; prevTransY = 0; prevTransZ = 0;
         valX.textContent = '0m'; valY.textContent = '0m'; valZ.textContent = '0m';
       } else if (currentMode === 'scale') {
+        // Infinite scrub: reset slider bounds relative to current scale
         updateSlidersForMode();
       }
     });
@@ -892,7 +884,7 @@
         this.hint.textContent = 'Surface detection unavailable — tap anywhere to place';
       }
 
-      session.addEventListener('select', () => this.onSelect());
+      session.addEventListener('select', (e) => this.onSelect(e));
       session.addEventListener('end', () => this.onSessionEnd());
     },
 
@@ -901,12 +893,11 @@
       this.reticle.setAttribute('visible', false);
     },
 
-    onSelect: function () {
-      // If pointer tapped directly on a sensor mesh, abort placement
-      if (tappedObjectThisFrame) {
-        tappedObjectThisFrame = false;
-        return;
-      }
+    onSelect: function (e) {
+      // In WebXR, test if the user tapped an existing 3D sensor first
+      const screenCenterX = window.innerWidth / 2;
+      const screenCenterY = window.innerHeight / 2;
+      if (checkObjectHit(screenCenterX, screenCenterY)) return;
 
       if (this.hitTestSupported) {
         if (!this.reticle.object3D.visible) return;

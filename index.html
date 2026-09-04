@@ -181,7 +181,7 @@
     <div class="board-frame">
       <div class="eyebrow">SENSOR LAB — AR FIELD GUIDE</div>
       <h1>AR Robotic Sensors</h1>
-      <p class="tagline">Place realistic 3D sensor modules on any surface, tap to learn what each one does, how it's built, and where it shows up in everyday devices.</p>
+      <p class="tagline">Place real sensor 3D models on any surface, tap to learn what each one does, how it's built, and where it shows up in everyday devices.</p>
 
       <button class="menu-btn" id="btn-scan">
         Scan Now <span class="arrow">›</span>
@@ -279,9 +279,7 @@
     background="transparent: true"
     style="display:none">
 
-    <a-assets timeout="10000">
-      <!-- You can place local GLBs here: <a-asset-item id="model-dht11" src="models/dht11.glb"></a-asset-item> -->
-    </a-assets>
+    <a-assets timeout="10000"></a-assets>
 
     <a-entity id="reticle"
       geometry="primitive: ring; radiusInner: 0.045; radiusOuter: 0.06"
@@ -299,9 +297,7 @@
 
 <script>
   /* =========================================================
-      SENSOR LIBRARY (Using .GLB Models)
-      Point `modelUrl` to your local .glb files (e.g. 'models/dht11.glb')
-      Default scales normalize real-world sensor sizes in meters.
+      SENSOR LIBRARY (.glb models in models/ folder)
   ========================================================= */
   const SENSOR_LIBRARY = [
     {
@@ -312,8 +308,8 @@
       construction: "A single molded plastic housing containing a calibrated resistive humidity-sensing component and a thermistor, read by a basic 8-bit chip that outputs digital data.",
       pairing: "Arduino Uno/Nano, ESP32, ESP8266 — reads over a single digital pin using a simple timing protocol.",
       examples: ["Home weather stations", "Greenhouse humidity monitors", "Basic smart thermostats"],
-      modelUrl: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/BoxInterleaved/glTF-Binary/BoxInterleaved.glb",
-      defaultScale: { x: 0.05, y: 0.07, z: 0.03 }
+      modelUrl: "models/dht11.glb",
+      defaultScale: { x: 1, y: 1, z: 1 }
     },
     {
       id: "dht22",
@@ -323,8 +319,8 @@
       construction: "Same resistive humidity + thermistor design as DHT11, but with a better-calibrated sensing element and faster sampling.",
       pairing: "Arduino, ESP32/ESP8266, Raspberry Pi GPIO — same single-wire digital protocol as DHT11.",
       examples: ["Precision greenhouse control", "HVAC monitoring", "Data-logging weather stations"],
-      modelUrl: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/BoxInterleaved/glTF-Binary/BoxInterleaved.glb",
-      defaultScale: { x: 0.06, y: 0.08, z: 0.03 }
+      modelUrl: "models/dht22.glb",
+      defaultScale: { x: 1, y: 1, z: 1 }
     },
     {
       id: "ir-obstacle",
@@ -334,8 +330,8 @@
       construction: "An IR LED emitter paired with an IR photodiode receiver on a small PCB, with an onboard comparator (often an LM393) to convert the analog signal to digital.",
       pairing: "Arduino, ESP32 — single digital input pin, plus a potentiometer on the module to tune sensitivity.",
       examples: ["Line-following robots", "Automatic soap dispensers", "Conveyor-belt object counters"],
-      modelUrl: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/BoxInterleaved/glTF-Binary/BoxInterleaved.glb",
-      defaultScale: { x: 0.04, y: 0.02, z: 0.06 }
+      modelUrl: "models/ir-obstacle.glb",
+      defaultScale: { x: 1, y: 1, z: 1 }
     },
     {
       id: "hc-sr04",
@@ -345,8 +341,8 @@
       construction: "Two ultrasonic transducers (one transmitter, one receiver) on a small PCB with driver/timing circuitry.",
       pairing: "Arduino, ESP32 — uses a trigger pin and an echo pin; distance is calculated from the echo pulse duration.",
       examples: ["Parking-assist sensors", "Robot vacuum obstacle avoidance", "Water tank level meters"],
-      modelUrl: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/BoxInterleaved/glTF-Binary/BoxInterleaved.glb",
-      defaultScale: { x: 0.08, y: 0.03, z: 0.025 }
+      modelUrl: "models/hc-sr04.glb",
+      defaultScale: { x: 1, y: 1, z: 1 }
     },
     {
       id: "pir",
@@ -356,8 +352,8 @@
       construction: "A pyroelectric sensor element under a Fresnel lens dome, which splits the detection zone into multiple sub-zones so movement across them triggers a signal.",
       pairing: "Arduino, ESP32, standalone security systems — single digital output pin (HIGH when motion detected).",
       examples: ["Security lights", "Motion-activated alarms", "Automatic doors"],
-      modelUrl: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/BoxInterleaved/glTF-Binary/BoxInterleaved.glb",
-      defaultScale: { x: 0.05, y: 0.04, z: 0.05 }
+      modelUrl: "models/pir.glb",
+      defaultScale: { x: 1, y: 1, z: 1 }
     },
     {
       id: "mpu6050",
@@ -367,8 +363,8 @@
       construction: "A single MEMS chip combining an accelerometer and gyroscope, plus an onboard digital motion processor, mounted on a small breakout board.",
       pairing: "Arduino, ESP32 — communicates over I2C (SDA/SCL pins).",
       examples: ["Self-balancing robots", "Drone flight controllers", "Phone screen auto-rotate"],
-      modelUrl: "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/BoxInterleaved/glTF-Binary/BoxInterleaved.glb",
-      defaultScale: { x: 0.035, y: 0.01, z: 0.035 }
+      modelUrl: "models/mpu6050.glb",
+      defaultScale: { x: 1, y: 1, z: 1 }
     }
   ];
 
@@ -617,12 +613,11 @@
     const sensor = SENSOR_LIBRARY.find(s => s.id === selectedSensorId);
     const entity = document.createElement('a-entity');
     
-    // Load GLB 3D Model
+    // Load local GLB model
     entity.setAttribute('gltf-model', sensor.modelUrl);
     entity.setAttribute('class', 'placed-sensor');
     entity.dataset.sensorId = sensor.id;
     
-    // Set base scale
     const s = sensor.defaultScale || { x: 1, y: 1, z: 1 };
     entity.setAttribute('scale', `${s.x} ${s.y} ${s.z}`);
 
@@ -639,7 +634,7 @@
     selectSensor(entity);
   }
 
-  /* Single Chip World-to-Screen Projection */
+  /* Screen Projection for Selected Chip */
   AFRAME.registerComponent('chip-updater', {
     tick: function () {
       const camera = this.el.camera;
@@ -920,7 +915,6 @@
     },
 
     onSelect: function () {
-      // Abort placement if user clicked an existing 3D model
       if (tappedObjectThisFrame) {
         tappedObjectThisFrame = false;
         return;
